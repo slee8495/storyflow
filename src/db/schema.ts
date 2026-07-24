@@ -71,6 +71,16 @@ export const chapters = pgTable(
 // daily cursor like Wordflow's Today tab (this app has no Today concept, see
 // docs/project-context.md). Updated whenever a reader opens a chapter; read back as the
 // "이어읽기" (resume) target from the Library/book page.
+//
+// chunkIndex/lang add sentence-level position WITHIN chapterNumber — chapters run long, and
+// re-listening/re-reading from the top every time isn't acceptable (explicit operator ask, see
+// project-context.md). chunkIndex indexes into splitIntoChunks(storyKo|storyEn) for whichever
+// `lang` it was recorded in — Korean and English chunk counts differ (independent retellings, not
+// aligned translations), so a chunkIndex is only meaningful paired with the lang it came from.
+// Both null until the reader has actually listened to or clicked a sentence in the CURRENT
+// chapterNumber; whenever chapterNumber itself changes (navigating to a different chapter), the
+// API resets both to null rather than carrying over a position that refers to different text —
+// see src/app/api/bookmarks/route.ts.
 export const bookmarks = pgTable(
   "bookmarks",
   {
@@ -82,6 +92,8 @@ export const bookmarks = pgTable(
       .notNull()
       .references(() => books.id, { onDelete: "cascade" }),
     chapterNumber: integer("chapter_number").notNull().default(1),
+    chunkIndex: integer("chunk_index"),
+    lang: varchar("lang", { length: 4 }), // "ko" | "en", null until chunkIndex is set
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => [unique().on(t.readerId, t.bookId)],

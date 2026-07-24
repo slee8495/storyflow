@@ -15,6 +15,13 @@
       "when": 1784917192957,
       "tag": "0001_perfect_baron_strucker",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1784926015310,
+      "tag": "0002_furry_nebula",
+      "breakpoints": true
     }
   ]
 }

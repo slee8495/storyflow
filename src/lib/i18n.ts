@@ -37,6 +37,7 @@ const STRINGS = {
   "chapter.next": { ko: "다음 화", en: "Next" },
   "chapter.korean": { ko: "한글", en: "Korean" },
   "chapter.english": { ko: "English", en: "English" },
+  "chapter.resumeHint": { ko: "지난번에 여기까지 들었어요 — 표시된 문장부터 이어가요.", en: "You left off here — resuming from the marked sentence." },
 
   "playback.resume": { ko: "재생", en: "Resume" },
   "playback.pause": { ko: "일시정지", en: "Pause" },

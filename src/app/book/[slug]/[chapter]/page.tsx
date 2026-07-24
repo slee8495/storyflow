@@ -10,6 +10,7 @@ import { usePlayback } from "../../../PlaybackProvider";
 import { useUiLanguage } from "../../../UiLanguageProvider";
 
 const LANG_KEY = "storyflow:lang";
+const RESUME_MARKER_ID = "resume-marker";
 const sourceId = (slug: string, chapterNumber: number) => `chapter-${slug}-${chapterNumber}`;
 
 type ChapterData = {
@@ -21,49 +22,61 @@ type ChapterData = {
   storyEn: string | null;
 };
 
+type ResumePosition = { chunkIndex: number; lang: "ko" | "en" };
+
 type ChapterResponse = {
   book: { id: number; slug: string; title: string; totalChapters: number | null };
   chapter: ChapterData;
   hasPrev: boolean;
   hasNext: boolean;
+  resume: ResumePosition | null;
 };
 
 function HighlightedText({
   text,
   isActiveSection,
   activeChunkIndex,
+  markerIndex,
   onSentenceClick,
 }: {
   text: string;
   isActiveSection: boolean;
   activeChunkIndex: number | null;
+  markerIndex: number | null;
   onSentenceClick: (index: number) => void;
 }) {
   const chunks = splitIntoChunks(text);
   return (
     <p className="text-base leading-relaxed whitespace-pre-line">
-      {chunks.map((chunk, i) => (
-        <span
-          key={i}
-          role="button"
-          tabIndex={0}
-          onClick={() => onSentenceClick(i)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" || e.key === " ") {
-              e.preventDefault();
-              onSentenceClick(i);
+      {chunks.map((chunk, i) => {
+        const isPlayingHere = isActiveSection && i === activeChunkIndex;
+        const isMarked = !isActiveSection && i === markerIndex;
+        return (
+          <span
+            key={i}
+            id={isMarked ? RESUME_MARKER_ID : undefined}
+            role="button"
+            tabIndex={0}
+            onClick={() => onSentenceClick(i)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                onSentenceClick(i);
+              }
+            }}
+            className={
+              isPlayingHere
+                ? "cursor-pointer rounded bg-[var(--clay-deep)] font-semibold text-[var(--paper-raised)] transition-colors"
+                : isMarked
+                  ? "cursor-pointer rounded border-b-2 border-[var(--clay)] bg-[var(--clay-tint)] transition-colors"
+                  : "cursor-pointer transition-colors hover:bg-[var(--clay-tint)]"
             }
-          }}
-          className={
-            isActiveSection && i === activeChunkIndex
-              ? "cursor-pointer rounded bg-[var(--clay-deep)] font-semibold text-[var(--paper-raised)] transition-colors"
-              : "cursor-pointer transition-colors hover:bg-[var(--clay-tint)]"
-          }
-        >
-          {chunk}
-          {i < chunks.length - 1 ? " " : ""}
-        </span>
-      ))}
+          >
+            {chunk}
+            {i < chunks.length - 1 ? " " : ""}
+          </span>
+        );
+      })}
     </p>
   );
 }
@@ -80,6 +93,11 @@ export default function ChapterPage() {
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState(false);
   const [lang, setLang] = useState<"ko" | "en">("en");
+  // The reader's saved in-chapter sentence position for THIS chapter, from the API response.
+  // Only ever set once, on load — not touched by live playback (activeChunkIndex from
+  // PlaybackProvider is the live position once playing; this is just where to resume from before
+  // that starts, and where to scroll/mark on arrival).
+  const [resumePosition, setResumePosition] = useState<ResumePosition | null>(null);
 
   useEffect(() => {
     const stored = localStorage.getItem(LANG_KEY);
@@ -93,16 +111,25 @@ export default function ChapterPage() {
     setLoading(true);
     setGenerating(false);
     setError(false);
+    setResumePosition(null);
     // A never-before-read chapter takes a few seconds to generate (see /api/books/[slug]/
     // chapters/[chapterNumber]) — flip a slower-feeling message on after a short delay instead of
     // always showing "불러오는 중" for what's usually an instant cached fetch.
     const generatingTimer = setTimeout(() => setGenerating(true), 800);
-    fetch(`/api/books/${slug}/chapters/${chapterNumber}`)
+    fetch(`/api/books/${slug}/chapters/${chapterNumber}?readerId=${reader.id}`)
       .then((res) => {
         if (!res.ok) throw new Error("failed to load chapter");
         return res.json();
       })
-      .then((json: ChapterResponse) => setData(json))
+      .then((json: ChapterResponse) => {
+        setData(json);
+        if (json.resume) {
+          setResumePosition(json.resume);
+          // Land the reader on the language they left off in, not whatever this device's last
+          // global toggle was — a chunkIndex only makes sense paired with its own language's text.
+          setLang(json.resume.lang);
+        }
+      })
       .catch(() => setError(true))
       .finally(() => {
         clearTimeout(generatingTimer);
@@ -111,6 +138,13 @@ export default function ChapterPage() {
       });
     return () => clearTimeout(generatingTimer);
   }, [slug, chapterNumber, reader]);
+
+  // Scrolls the resume marker into view once the chapter's text has actually rendered.
+  useEffect(() => {
+    if (!resumePosition) return;
+    const el = document.getElementById(RESUME_MARKER_ID);
+    el?.scrollIntoView({ block: "center" });
+  }, [resumePosition]);
 
   useEffect(() => {
     if (!reader || !data) return;
@@ -123,14 +157,27 @@ export default function ChapterPage() {
     });
   }, [reader, data, chapterNumber]);
 
+  const thisSourceId = sourceId(slug, chapterNumber);
+  const isSpeakingThis = playingSourceId === thisSourceId;
+
+  // Saves the sentence position as playback (TTS or click-to-seek, both drive activeChunkIndex)
+  // advances through THIS chapter — the whole point being able to pick back up mid-chapter later.
+  useEffect(() => {
+    if (!reader || !data || !isSpeakingThis || activeChunkIndex === null) return;
+    fetch("/api/bookmarks", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ readerId: reader.id, bookId: data.book.id, chapterNumber, chunkIndex: activeChunkIndex, lang }),
+    }).catch(() => {
+      // best-effort
+    });
+  }, [reader, data, chapterNumber, isSpeakingThis, activeChunkIndex, lang]);
+
   const chunks = useMemo(() => {
     if (!data) return [];
     const text = lang === "en" ? data.chapter.storyEn : data.chapter.storyKo;
     return text ? splitIntoChunks(text) : [];
   }, [data, lang]);
-
-  const thisSourceId = sourceId(slug, chapterNumber);
-  const isSpeakingThis = playingSourceId === thisSourceId;
 
   function setLanguage(next: "ko" | "en") {
     setLang(next);
@@ -144,6 +191,8 @@ export default function ChapterPage() {
     if (!text?.trim()) return;
     playText(thisSourceId, title ?? `Ch. ${chapterNumber}`, text, startIndex);
   }
+
+  const markerIndex = resumePosition && resumePosition.lang === lang ? resumePosition.chunkIndex : null;
 
   if (readerLoading) return null;
   if (!reader) return <ReaderGate />;
@@ -192,7 +241,11 @@ export default function ChapterPage() {
                 Ch. {chapterNumber} · {lang === "en" ? data.chapter.titleEn : data.chapter.titleKo}
               </h1>
               {!isSpeakingThis ? (
-                <button onClick={() => speak()} className="shrink-0 text-lg" aria-label={t("chapter.listen")}>
+                <button
+                  onClick={() => speak(markerIndex ?? undefined)}
+                  className="shrink-0 text-lg"
+                  aria-label={t("chapter.listen")}
+                >
                   🔊
                 </button>
               ) : (
@@ -211,11 +264,15 @@ export default function ChapterPage() {
                 </div>
               )}
             </div>
+            {markerIndex !== null && !isSpeakingThis && (
+              <p className="mb-2 text-xs text-[var(--ink-soft)]">🔖 {t("chapter.resumeHint")}</p>
+            )}
             {chunks.length > 0 ? (
               <HighlightedText
                 text={lang === "en" ? data.chapter.storyEn! : data.chapter.storyKo!}
                 isActiveSection={isSpeakingThis}
                 activeChunkIndex={activeChunkIndex}
+                markerIndex={markerIndex}
                 onSentenceClick={(i) => speak(i)}
               />
             ) : (

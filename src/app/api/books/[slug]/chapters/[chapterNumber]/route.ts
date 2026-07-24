@@ -1,15 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { eq, and } from "drizzle-orm";
 import { db } from "@/db";
-import { books, chapters } from "@/db/schema";
+import { books, chapters, bookmarks } from "@/db/schema";
 import { ensureChapterContent } from "@/lib/generateChapter";
 
 // Returns one chapter's bilingual retelling, generating it on first read (see
 // ensureChapterContent) and reusing the cached version on every later read. Also returns
 // prev/next chapter numbers so the reading page can render its own navigation without a second
-// request.
+// request, and — when `readerId` is passed — the reader's saved in-chapter sentence position
+// (`resume`), but only when their bookmark's chapterNumber matches THIS chapter; a bookmark
+// pointing at a different chapter has no meaningful resume position here.
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ slug: string; chapterNumber: string }> },
 ) {
   const { slug, chapterNumber } = await params;
@@ -17,6 +19,7 @@ export async function GET(
   if (!Number.isInteger(chapterNum) || chapterNum < 1) {
     return NextResponse.json({ error: "invalid chapter number" }, { status: 400 });
   }
+  const readerId = Number(req.nextUrl.searchParams.get("readerId") ?? "");
 
   const [book] = await db.select().from(books).where(eq(books.slug, slug)).limit(1);
   if (!book) return NextResponse.json({ error: "book not found" }, { status: 404 });
@@ -39,10 +42,23 @@ export async function GET(
   const hasPrev = chapterNum > 1;
   const hasNext = Boolean(nextRow);
 
+  let resume: { chunkIndex: number; lang: "ko" | "en" } | null = null;
+  if (readerId) {
+    const [mark] = await db
+      .select()
+      .from(bookmarks)
+      .where(and(eq(bookmarks.readerId, readerId), eq(bookmarks.bookId, book.id)))
+      .limit(1);
+    if (mark && mark.chapterNumber === chapterNum && mark.chunkIndex !== null && mark.lang) {
+      resume = { chunkIndex: mark.chunkIndex, lang: mark.lang as "ko" | "en" };
+    }
+  }
+
   return NextResponse.json({
     book: { id: book.id, slug: book.slug, title: book.title, totalChapters: book.totalChapters },
     chapter,
     hasPrev,
     hasNext,
+    resume,
   });
 }

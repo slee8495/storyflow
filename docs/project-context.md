@@ -198,6 +198,34 @@ designed). Bulk-pregenerating all 120 was **not** done — that's a real per-run
 ~30-60s × 119 sequentially, or faster in parallel; cost: see the Haiku pricing estimate above,
 still low) that should be a deliberate choice, not something done silently in passing.
 
+## Sentence-level resume position (added 2026-07-24, post-deploy)
+
+Follow-up ask after the first production deploy: "북마크는 어떻게 해?" → chapter-level bookmarking
+existed, but chapters run long and re-listening/re-reading from the top every time isn't
+acceptable. Added in-chapter sentence position on top of the existing chapter-level bookmark:
+
+- `bookmarks.chunkIndex` + `bookmarks.lang` (migration `0002`) — indexes into
+  `splitIntoChunks(storyKo|storyEn)` for whichever language it was recorded in. Korean/English
+  chunk counts differ (independent retellings, not aligned translations), so a chunkIndex is only
+  meaningful paired with its own `lang` — never interpret one without the other.
+- Written from two places on the chapter page: (a) live, whenever TTS or a sentence click moves
+  `activeChunkIndex` while that chapter is the one playing; (b) implicitly preserved-or-reset by
+  `POST /api/bookmarks` itself — see the reset-on-different-chapter / preserve-on-same-chapter
+  logic in `src/app/api/bookmarks/route.ts`, verified with a manual request sequence during this
+  session (open ch. 2 → set position → reopen ch. 2 without a position → position survives; open
+  ch. 1 → position resets to null).
+- Read back via `GET /api/books/[slug]/chapters/[chapterNumber]?readerId=` → `resume` field, only
+  populated when the bookmark's `chapterNumber` matches the chapter being requested. The chapter
+  page uses it to: default the language toggle to the language it was recorded in (not the
+  device's last global choice), mark that sentence visually (🔖 + border, distinct from the
+  live-playback highlight), scroll it into view on load, and use it as the default TTS start
+  index when the reader taps 🔊 fresh instead of clicking a specific sentence.
+- Deliberately does **not** cover silent scrolling/reading with zero TTS or sentence-click
+  interaction — there's no scroll-position tracking, only chunk-index tracking tied to actual
+  playback/click events. A reader who scrolls through a chapter without ever pressing play or
+  clicking a sentence still won't get a resume marker. Flagged here rather than silently
+  scoped out, in case that gap matters enough later to add scroll-based tracking too.
+
 ## Status
 
 - 2026-07-24: Idea scoped, first book picked (삼국지). Repo created at
@@ -208,11 +236,15 @@ still low) that should be a deliberate choice, not something done silently in pa
   end-to-end against the real production database**, including one real Claude-generated
   chapter. Nothing scoped for this session remains outstanding. See "Architecture as actually
   built", "Infrastructure", and "Source text" above for what exists and how it was verified.
+  **Deployed to production**: pushed to `main` (GitHub-connected → Vercel auto-build, ~29s,
+  succeeded) — **live at https://storyflow-pied.vercel.app**. Verified live: `/` and `/api/books`
+  both 200, correctly reading from the same Neon DB (120-chapter 삼국지 metadata + the one
+  already-generated chapter 1 both show up in production, no separate seeding needed since it's
+  the same `DATABASE_URL` across environments).
   Possible next steps (none committed to yet — bring back to the operator before doing any of
   these): pre-generate more/all chapters ahead of time instead of lazily; source a second book;
   review generation quality across a wider sample of chapters (only chapter 1 has been read so
-  far); actually deploy to production (`vercel deploy`/git push — the Vercel project is linked but
-  no deploy has been triggered yet) and try it as an installed Safari PWA on a phone.
+  far); try it as an installed Safari PWA on a phone against the production URL above.
 
 ## For the next Claude session picking this up
 
