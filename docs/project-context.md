@@ -226,6 +226,35 @@ acceptable. Added in-chapter sentence position on top of the existing chapter-le
   clicking a sentence still won't get a resume marker. Flagged here rather than silently
   scoped out, in case that gap matters enough later to add scroll-based tracking too.
 
+## Reading progress + pace projection (added 2026-07-24, second post-deploy follow-up)
+
+Third follow-up after deploy: "몇퍼센트 읽었나... 이 추세면 몇일날 다 읽을 수 있는지도. wordflow에
+있는 로직이야." — ported Wordflow's `projectedCompletionDate` trailing-pace idea
+(`../wordflow/src/lib/progress.ts`) from discrete curriculum-item counts to this app's continuous
+sentence-level position.
+
+- `progressSnapshots` table (migration `0003`): one row per (reader, book, UTC calendar day),
+  storing the **best** (max) whole-book progress % reached that day — see the schema comment for
+  why max-per-day rather than latest-write-per-day (rereading an earlier chapter shouldn't dip the
+  day's recorded high-water mark).
+- `src/lib/progress.ts`: `computeChapterFraction` (position within the current chapter, via
+  `splitIntoChunks` chunk counts — same function the resume-position feature already uses),
+  `computeOverallProgressPct` (chapters fully before the current one + the current chapter's
+  fraction, divided by `totalChapters` — smoother than a bare chapter-count ratio since it moves
+  within a chapter, not just on chapter completion), `recordProgressSnapshot` (the upsert-max
+  write), `projectCompletion` (14-day trailing window, same as Wordflow's `PACE_WINDOW_DAYS`;
+  needs ≥2 distinct days of data with positive net progress or returns `null` — "not enough data
+  yet", surfaced in the UI rather than a bogus date).
+- Snapshot writing lives in `POST /api/bookmarks` (every bookmark write — chapter-level or
+  sentence-level — is a "progress changed" event), not in a separate write path. Reading lives in
+  new `GET /api/books/[slug]/progress`.
+- UI: a progress card on the book detail page (`src/app/book/[slug]/page.tsx`), shown only once
+  the reader has actually started that book — current-chapter %, overall %, a progress bar, and
+  the projected finish date (or the "read a bit more" fallback).
+- Verified against the real Neon DB: current/overall % computed correctly from a simulated
+  sentence position; manually inserted a 3-days-ago snapshot and confirmed the projection math
+  (rate → remaining days → projected date) comes out right before deploying.
+
 ## Status
 
 - 2026-07-24: Idea scoped, first book picked (삼국지). Repo created at

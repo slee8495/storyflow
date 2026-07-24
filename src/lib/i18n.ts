@@ -28,6 +28,13 @@ const STRINGS = {
   "book.resumeAt": { ko: "화 이어읽기", en: "Resume at Ch." },
   "book.startFromOne": { ko: "1화부터 읽기", en: "Start from Ch. 1" },
 
+  "progress.title": { ko: "진행 상황", en: "Progress" },
+  "progress.currentChapter": { ko: "현재 챕터", en: "Current chapter" },
+  "progress.overall": { ko: "전체 진행률", en: "Overall progress" },
+  "progress.projected": { ko: "예상 완독일", en: "Projected finish" },
+  "progress.notEnoughData": { ko: "며칠 더 읽으면 예상 완독일이 나와요", en: "Read a bit more to get a projection" },
+  "progress.daysRemaining": { ko: "일 후", en: "days left" },
+
   "chapter.generating": { ko: "이야기를 새로 준비하고 있어요... (처음 한 번만 걸려요)", en: "Preparing this chapter for the first time... (only takes a moment)" },
   "chapter.loading": { ko: "불러오는 중...", en: "Loading..." },
   "chapter.error": { ko: "챕터를 불러오지 못했어요.", en: "Couldn't load this chapter." },

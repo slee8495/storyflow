@@ -6,6 +6,7 @@ import Link from "next/link";
 import { ReaderGate, useReader } from "../../ReaderProvider";
 import { ChevronIcon } from "../../ChevronIcon";
 import { useUiLanguage } from "../../UiLanguageProvider";
+import type { UiStringKey } from "@/lib/i18n";
 
 type ChapterListItem = {
   id: number;
@@ -27,6 +28,47 @@ type BookDetail = {
   descriptionEn: string | null;
 };
 
+type ProgressData = {
+  started: boolean;
+  chapterNumber: number | null;
+  totalChapters: number | null;
+  currentChapterPct: number;
+  overallPct: number;
+  projected: { date: string; daysRemaining: number } | null;
+};
+
+function ProgressCard({ progress, uiLang, t }: { progress: ProgressData; uiLang: "ko" | "en"; t: (k: UiStringKey) => string }) {
+  return (
+    <section className="flex flex-col gap-3 rounded-xl border border-[var(--line)] bg-[var(--paper-raised)] p-4 shadow-sm">
+      <h2 className="text-sm font-semibold text-[var(--ink-soft)]">{t("progress.title")}</h2>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <p className="text-xs text-[var(--ink-soft)]">
+            {t("progress.currentChapter")} ({progress.chapterNumber})
+          </p>
+          <p className="text-xl font-semibold text-[var(--ink)]">{progress.currentChapterPct}%</p>
+        </div>
+        <div>
+          <p className="text-xs text-[var(--ink-soft)]">{t("progress.overall")}</p>
+          <p className="text-xl font-semibold text-[var(--ink)]">{progress.overallPct}%</p>
+        </div>
+      </div>
+      <div className="h-2 w-full overflow-hidden rounded-full bg-[var(--clay-tint)]">
+        <div className="h-full rounded-full bg-[var(--clay)]" style={{ width: `${progress.overallPct}%` }} />
+      </div>
+      <p className="text-xs text-[var(--ink-soft)]">
+        {progress.projected
+          ? `${t("progress.projected")}: ${new Intl.DateTimeFormat(uiLang === "ko" ? "ko-KR" : "en-US", {
+              month: "long",
+              day: "numeric",
+              year: "numeric",
+            }).format(new Date(`${progress.projected.date}T00:00:00Z`))} (${progress.projected.daysRemaining}${t("progress.daysRemaining")})`
+          : t("progress.notEnoughData")}
+      </p>
+    </section>
+  );
+}
+
 export default function BookPage() {
   const { slug } = useParams<{ slug: string }>();
   const { reader, loading: readerLoading } = useReader();
@@ -34,6 +76,7 @@ export default function BookPage() {
   const [book, setBook] = useState<BookDetail | null>(null);
   const [chapters, setChapters] = useState<ChapterListItem[]>([]);
   const [bookmarkChapter, setBookmarkChapter] = useState<number | null>(null);
+  const [progress, setProgress] = useState<ProgressData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
@@ -56,6 +99,16 @@ export default function BookPage() {
       .finally(() => setLoading(false));
   }, [slug, reader]);
 
+  useEffect(() => {
+    if (!reader || !bookmarkChapter) return;
+    fetch(`/api/books/${slug}/progress?readerId=${reader.id}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((json: ProgressData | null) => setProgress(json))
+      .catch(() => {
+        // progress is a nice-to-have — a failed fetch just hides the card
+      });
+  }, [slug, reader, bookmarkChapter]);
+
   if (readerLoading) return null;
   if (!reader) return <ReaderGate />;
   if (loading) return <p className="text-sm text-[var(--ink-soft)]">{t("book.loading")}</p>;
@@ -75,6 +128,8 @@ export default function BookPage() {
         {book.author && <p className="text-sm text-[var(--ink-soft)]">{book.author}</p>}
         {description && <p className="mt-2 text-sm leading-relaxed text-[var(--ink-soft)]">{description}</p>}
       </div>
+
+      {progress?.started && <ProgressCard progress={progress} uiLang={uiLang} t={t} />}
 
       <Link
         href={`/book/${slug}/${bookmarkChapter ?? 1}`}

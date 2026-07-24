@@ -5,6 +5,8 @@ import {
   varchar,
   timestamp,
   integer,
+  real,
+  date,
   unique,
 } from "drizzle-orm/pg-core";
 
@@ -99,7 +101,33 @@ export const bookmarks = pgTable(
   (t) => [unique().on(t.readerId, t.bookId)],
 );
 
+// One row per reader/book/calendar-day, storing the best (max) overall book-progress percentage
+// reached that day — the data behind the "이 추세면 언제 다 읽나" pace projection (mirrors
+// Wordflow's trailing-pace projectedCompletionDate in src/lib/progress.ts there, adapted from
+// discrete curriculum-item counts to a continuous percentage). Written from
+// src/lib/progress.ts's recordProgressSnapshot(), called after every bookmark update — never
+// written directly from route handlers. "Best" (not "latest") per day so jumping back to reread
+// an earlier chapter doesn't dip today's recorded high-water mark, which would make the pace
+// calculation swing on simple navigation rather than real forward progress.
+export const progressSnapshots = pgTable(
+  "progress_snapshots",
+  {
+    id: serial("id").primaryKey(),
+    readerId: integer("reader_id")
+      .notNull()
+      .references(() => readers.id, { onDelete: "cascade" }),
+    bookId: integer("book_id")
+      .notNull()
+      .references(() => books.id, { onDelete: "cascade" }),
+    day: date("day").notNull(), // server UTC calendar date — no per-reader timezone tracking in this app
+    progressPct: real("progress_pct").notNull(), // 0-100, best value reached this day
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [unique().on(t.readerId, t.bookId, t.day)],
+);
+
 export type Reader = typeof readers.$inferSelect;
 export type Book = typeof books.$inferSelect;
 export type Chapter = typeof chapters.$inferSelect;
 export type Bookmark = typeof bookmarks.$inferSelect;
+export type ProgressSnapshot = typeof progressSnapshots.$inferSelect;
