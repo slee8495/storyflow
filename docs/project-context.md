@@ -80,6 +80,18 @@ implementation this is modeled on. Key pattern to reuse:
 
 ## Status
 
-- 2026-07-24: Idea scoped, first book picked (삼국지), this repo/folder just created. No code yet —
-  next steps are sourcing a full 삼국지 text and deciding the tech stack (can reuse Wordflow's
-  Next.js/Drizzle stack, or go simpler given single-user/no-billing scope).
+- 2026-07-24: Idea scoped, first book picked (삼국지). Repo created at
+  https://github.com/slee8495/storyflow — pushed public (operator OK'd this; the personal-use-only
+  constraint above is about the *app/service* not being distributed or monetized, not about the
+  code being visible — same as how Wordflow's repo is also public). No app code yet — next steps
+  are sourcing a full 삼국지 text and deciding the tech stack (reuse Wordflow's Next.js/Drizzle
+  stack, or go simpler given the single-user/no-billing scope here).
+
+## For the next Claude session picking this up
+
+Read this whole file first — it's the complete context, nothing important was discussed outside
+of it. In short: this is a personal side project, not started yet beyond scoping. The two concrete
+next steps are (1) source a full public-domain 삼국지 text to seed the app with, and (2) decide the
+tech stack. Don't add auth, billing, multi-user, or public-facing deployment features without first
+re-confirming the licensing/personal-use constraint above with the operator — that scope hasn't
+changed as of this writing.
