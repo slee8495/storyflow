@@ -255,6 +255,52 @@ sentence-level position.
   sentence position; manually inserted a 3-days-ago snapshot and confirmed the projection math
   (rate → remaining days → projected date) comes out right before deploying.
 
+## TTS highlight-sync rewrite (2026-07-24, third post-deploy follow-up)
+
+Bug report: "하이라이트가 오디오를 제대로 안따라가네" (highlight doesn't properly follow the
+audio). Root cause found in `src/lib/speak.ts` (ported near-verbatim from Wordflow): sentence
+chunks were fetched as separate MP3s, **concatenated as raw compressed bytes**, and each chunk's
+duration was **measured independently** via a throwaway `<audio>` element's `loadedmetadata`. Each
+independently-encoded MP3 carries its own small encoder priming/padding, so "sum of each clip's
+own reported duration" drifts from how long the glued-together file actually plays — compounding
+with every chunk. Wordflow's short Bible-passage chunks rarely hit enough chunks for this to be
+visible; a Storyflow chapter (measured: chapter 1 = 125 sentence chunks) has plenty.
+
+**Fix:** decode every chunk to exact PCM via the Web Audio API (`decodeAudioData`), concatenate
+the *decoded samples* (not the compressed bytes), and derive chunk-boundary offsets from
+`AudioBuffer.duration` — sample-accurate by construction, no more measure-vs-reality gap. The
+combined buffer is re-encoded as a WAV blob for playback (kept using a single `<audio>` element
+throughout, not raw Web Audio playback, to preserve the mobile background-playback reliability the
+original MP3-concatenation design was built around — see the file's header comment).
+
+**Two further bugs found and fixed while validating this at real chapter-length scale** (a 125-chunk
+chapter, not a handful of Bible verses):
+1. **Main-thread freeze on WAV encoding.** The obvious `DataView.setInt16` per-sample encode loop
+   is fine at Bible-passage scale but froze the tab for what field-testing suggested was a minute
+   or more at chapter scale (56.9M samples for one chapter at the original 48kHz). Fixed by writing
+   into a plain `Int16Array` view over the same buffer instead — a JIT-optimized indexed store, not
+   a per-call DataView operation. Measured: full pipeline (fetch+decode+concat+encode) for a
+   125-chunk, ~20-minute chapter dropped to ~1 second.
+2. **Oversized output file.** 48kHz 16-bit mono WAV for a 20-minute chapter is 100MB+ — real memory
+   pressure on mobile even though desktop Chrome handles it. Switched to rendering the concatenated
+   buffer through an `OfflineAudioContext` at 16kHz (plenty for clear speech, well above
+   telephone-quality 8kHz) instead of a plain `AudioContext.createBuffer` — this both resamples and
+   concatenates in one pass, cutting file size roughly 3x with no code-complexity cost (replaced
+   the old manual `concatenateBuffers` loop entirely).
+
+**Verification status — read before assuming this is fully confirmed working:** the data pipeline
+(fetch → decode → resample/concatenate → WAV-encode) was verified correct and fast via direct
+instrumented script execution against the real deployed chapter-1 data (~1s total, confirmed via
+`performance.now()` timing at each stage). A real user click was also confirmed (via temporary
+console instrumentation, since removed) to drive the actual app code through the full pipeline
+successfully. **What was NOT conclusively verified**: whether audio actually starts audibly
+playing and highlighting visibly tracks it, in a real browser — the claude-in-chrome automation
+environment used for testing had unreliable click registration and never produced a confirmed
+"playing" state for `<audio>` elements even for tiny, known-good files, which looks like an
+environment limitation (no real audio sink in that automation context) rather than an app bug, but
+this was not proven either way. **Ask the operator to verify a real chapter playthrough (audio +
+highlight sync) on an actual device before considering this closed.**
+
 ## Status
 
 - 2026-07-24: Idea scoped, first book picked (삼국지). Repo created at
