@@ -11,6 +11,7 @@ import { useUiLanguage } from "../../../UiLanguageProvider";
 
 const LANG_KEY = "storyflow:lang";
 const RESUME_MARKER_ID = "resume-marker";
+const TOOLBAR_ID = "chapter-toolbar";
 const sourceId = (slug: string, chapterNumber: number) => `chapter-${slug}-${chapterNumber}`;
 
 type ChapterData = {
@@ -61,14 +62,21 @@ type ChapterResponse = {
 // The images stay pinned under the site header while the reader scrolls through the chapter text
 // (sticky within the chapter card, so they release once the card ends). Height is capped so the
 // text below keeps most of the screen; the long captions scroll normally underneath.
-function IllustrationPanel({ illustrations, lang }: { illustrations: Illustration[]; lang: "ko" | "en" }) {
-  const headerHeight = useHeaderHeight();
+function IllustrationPanel({
+  illustrations,
+  lang,
+  stickyTop,
+}: {
+  illustrations: Illustration[];
+  lang: "ko" | "en";
+  stickyTop: number;
+}) {
   if (illustrations.length === 0) return null;
   return (
     <>
       <div
         className="sticky z-[5] -mx-4 mb-3 border-b border-[var(--line)] bg-[var(--paper-raised)] px-4 py-2"
-        style={{ top: headerHeight }}
+        style={{ top: stickyTop }}
       >
         <div className={`grid gap-2 ${illustrations.length > 1 ? "grid-cols-2" : "grid-cols-1"}`}>
           {illustrations.map((illustration) => (
@@ -99,19 +107,20 @@ function IllustrationPanel({ illustrations, lang }: { illustrations: Illustratio
   );
 }
 
-// Height of the layout's sticky site header (safe-area inset + font-scaled title), so the pinned
-// illustrations sit just below it instead of underneath it.
-function useHeaderHeight() {
+// Live height of a rendered element (0 until it exists). Used to stack this page's pinned rows
+// under the layout's sticky site header, whose height varies with the safe-area inset and font scale.
+function useElementHeight(selector: string, deps: unknown[] = []) {
   const [height, setHeight] = useState(0);
   useEffect(() => {
-    const header = document.querySelector("body header");
-    if (!header) return;
-    const update = () => setHeight(header.getBoundingClientRect().height);
+    const el = document.querySelector(selector);
+    if (!el) return;
+    const update = () => setHeight(el.getBoundingClientRect().height);
     update();
     const observer = new ResizeObserver(update);
-    observer.observe(header);
+    observer.observe(el);
     return () => observer.disconnect();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selector, ...deps]);
   return height;
 }
 
@@ -332,6 +341,9 @@ export default function ChapterPage() {
     playText(thisSourceId, title ?? `Ch. ${chapterNumber}`, text, startIndex);
   }
 
+  const headerHeight = useElementHeight("body header");
+  const toolbarHeight = useElementHeight(`#${TOOLBAR_ID}`, [readerLoading, reader]);
+
   const markerIndex = resumePosition && resumePosition.lang === lang ? resumePosition.chunkIndex : null;
 
   if (readerLoading) return null;
@@ -339,7 +351,12 @@ export default function ChapterPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between">
+      {/* Pinned under the site header so the language can be switched mid-chapter without scrolling back up. */}
+      <div
+        id={TOOLBAR_ID}
+        className="sticky z-[6] -mx-4 -my-2 flex items-center justify-between bg-[var(--paper)] px-4 py-2"
+        style={{ top: headerHeight }}
+      >
         <Link
           href={`/book/${slug}`}
           className="flex items-center gap-1 text-xs text-[var(--ink-soft)] hover:text-[var(--ink)]"
@@ -425,7 +442,7 @@ export default function ChapterPage() {
                 </button>
               </div>
             )}
-            <IllustrationPanel illustrations={data.illustrations} lang={lang} />
+            <IllustrationPanel illustrations={data.illustrations} lang={lang} stickyTop={headerHeight + toolbarHeight} />
             {markerIndex !== null && !isSpeakingThis && (
               <p className="mb-2 text-xs text-[var(--ink-soft)]">
                 🔖 {openedFromMark ? t("marks.jumpHint") : t("chapter.resumeHint")}
