@@ -17,6 +17,17 @@ const SEED_BOOKS = [
     description: "후한 말, 위·촉·오 세 나라가 다투던 시대의 영웅들 이야기.",
     descriptionEn: "Heroes and rivals of the Three Kingdoms era, as the Han dynasty falls apart.",
   },
+  {
+    slug: "chatterley",
+    title: "채털리 부인의 연인",
+    titleEn: "Lady Chatterley's Lover",
+    author: "D. H. 로렌스 (D. H. Lawrence)",
+    totalChapters: null as number | null,
+    coverColor: "#4f6b3a",
+    description: "전쟁 뒤 차가운 귀족의 저택에서, 숲지기와의 사랑을 통해 몸과 마음을 되찾아가는 콘스턴스의 이야기.",
+    descriptionEn:
+      "In a cold country house after the war, Constance finds her body and her heart again through love with the gamekeeper.",
+  },
 ];
 
 async function main() {

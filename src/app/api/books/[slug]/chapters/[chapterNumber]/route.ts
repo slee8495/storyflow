@@ -1,15 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
-import { eq, and } from "drizzle-orm";
+import { eq, and, asc } from "drizzle-orm";
 import { db } from "@/db";
-import { books, chapters, bookmarks } from "@/db/schema";
+import { books, chapters, bookmarks, chapterIllustrations } from "@/db/schema";
 import { ensureChapterContent } from "@/lib/generateChapter";
+
+// A never-before-read chapter is generated inline on this request (two parallel Claude calls, see
+// generateChapter.ts) — a ~3k-word Lady Chatterley part measured ~200s on Sonnet, so this needs
+// the full 300s function budget rather than a shorter default.
+export const maxDuration = 300;
 
 // Returns one chapter's bilingual retelling, generating it on first read (see
 // ensureChapterContent) and reusing the cached version on every later read. Also returns
 // prev/next chapter numbers so the reading page can render its own navigation without a second
 // request, and — when `readerId` is passed — the reader's saved in-chapter sentence position
 // (`resume`), but only when their bookmark's chapterNumber matches THIS chapter; a bookmark
-// pointing at a different chapter has no meaningful resume position here.
+// pointing at a different chapter has no meaningful resume position here. Also returns the
+// chapter's curated artwork (`illustrations`, see schema.ts chapterIllustrations), if any.
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ slug: string; chapterNumber: string }> },
@@ -32,6 +38,12 @@ export async function GET(
   if (!row) return NextResponse.json({ error: "chapter not found" }, { status: 404 });
 
   const chapter = row.generatedAt ? row : await ensureChapterContent(row.id);
+
+  const illustrations = await db
+    .select()
+    .from(chapterIllustrations)
+    .where(eq(chapterIllustrations.chapterId, row.id))
+    .orderBy(asc(chapterIllustrations.position));
 
   const [nextRow] = await db
     .select({ id: chapters.id })
@@ -57,6 +69,7 @@ export async function GET(
   return NextResponse.json({
     book: { id: book.id, slug: book.slug, title: book.title, totalChapters: book.totalChapters },
     chapter,
+    illustrations,
     hasPrev,
     hasNext,
     resume,

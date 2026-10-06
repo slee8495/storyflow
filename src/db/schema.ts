@@ -69,6 +69,31 @@ export const chapters = pgTable(
   (t) => [unique().on(t.bookId, t.chapterNumber)],
 );
 
+// Artwork shown alongside a chapter — public-domain museum images (The Met / Art Institute of
+// Chicago open access), hand-curated per chapter and loaded by a book's ingestion script, never
+// generated. Kept out of the story text itself so TTS and sentence-level resume positions
+// (bookmarks.chunkIndex) are unaffected by how many pictures a chapter has. `position` orders
+// several illustrations within one chapter.
+export const chapterIllustrations = pgTable(
+  "chapter_illustrations",
+  {
+    id: serial("id").primaryKey(),
+    chapterId: integer("chapter_id")
+      .notNull()
+      .references(() => chapters.id, { onDelete: "cascade" }),
+    position: integer("position").notNull().default(0),
+    imageUrl: text("image_url").notNull(),
+    title: text("title").notNull(),
+    artist: text("artist").notNull(),
+    dateDisplay: varchar("date_display", { length: 64 }),
+    credit: text("credit").notNull(), // museum + accession, shown under the image
+    sourceUrl: text("source_url").notNull(), // the museum's own object page
+    captionKo: text("caption_ko").notNull(),
+    captionEn: text("caption_en").notNull(),
+  },
+  (t) => [unique().on(t.chapterId, t.position)],
+);
+
 // Pure "where did I leave off" pointer per reader per book — deliberately NOT an auto-advancing
 // daily cursor like Wordflow's Today tab (this app has no Today concept, see
 // docs/project-context.md). Updated whenever a reader opens a chapter; read back as the
@@ -131,3 +156,4 @@ export type Book = typeof books.$inferSelect;
 export type Chapter = typeof chapters.$inferSelect;
 export type Bookmark = typeof bookmarks.$inferSelect;
 export type ProgressSnapshot = typeof progressSnapshots.$inferSelect;
+export type ChapterIllustration = typeof chapterIllustrations.$inferSelect;

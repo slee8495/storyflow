@@ -301,6 +301,30 @@ environment limitation (no real audio sink in that automation context) rather th
 this was not proven either way. **Ask the operator to verify a real chapter playthrough (audio +
 highlight sync) on an actual device before considering this closed.**
 
+## Second book: 채털리 부인의 연인 + illustrations (added 2026-10-05)
+
+- Background: the operator saw Degas nudes at the Norton Simon Museum and wanted sensual, frank
+  classics plus the art itself. Plan agreed on: (1) Lady Chatterley's Lover with public-domain
+  paintings as illustrations, then (2) an original art-history "museum tour" book in the spirit of
+  Gombrich's *Story of Art*. Gombrich itself is in copyright, so the tour is newly written around
+  open-access artworks rather than rewritten from his text. Part 2 hasn't been built yet.
+- Source: Project Gutenberg #73144 (unexpurgated 1928 Florence text), `data/chatterley-source.txt`.
+  `src/db/ingestChatterley.ts` (`npm run db:ingest-chatterley`) splits each of the 19 chapters at
+  paragraph boundaries into parts of at most about 3.5k words, giving **42 `chapters` rows**.
+  `sourceTitle` holds labels like "Chapter X · Part 2 of 5".
+- Illustrations: new `chapter_illustrations` table (migration 0004). There is one hand-curated
+  Met/AIC public-domain artwork per part, with bilingual captions, stored in
+  `data/chatterley-illustrations.json`. Re-running the ingest replaces them. They are rendered
+  above the story text and outside the TTS chunks.
+- Generation changes in `generateChapter.ts`, affecting all books:
+  - Korean and English are now two parallel calls instead of one bilingual call.
+  - There is no advisory-lock transaction any more. The write is conditional on `generatedAt IS NULL`.
+  - Per-book `BOOK_GUIDANCE` (Chatterley: keep the love scenes as frank as Lawrence wrote them, no more).
+  - Per-book `BOOK_MODELS` (Chatterley uses Sonnet 5.5). Haiku on an English source produced
+    near-verbatim English and a stiff, literal Korean.
+  - Measured on Sonnet: about 200s per part, so the chapter route sets `maxDuration = 300`.
+  - The whole book costs about $6 to generate.
+
 ## Status
 
 - 2026-07-24: Idea scoped, first book picked (삼국지). Repo created at

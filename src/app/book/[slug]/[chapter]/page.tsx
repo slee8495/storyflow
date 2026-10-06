@@ -22,15 +22,55 @@ type ChapterData = {
   storyEn: string | null;
 };
 
+type Illustration = {
+  id: number;
+  imageUrl: string;
+  title: string;
+  artist: string;
+  dateDisplay: string | null;
+  credit: string;
+  sourceUrl: string;
+  captionKo: string;
+  captionEn: string;
+};
+
 type ResumePosition = { chunkIndex: number; lang: "ko" | "en" };
 
 type ChapterResponse = {
   book: { id: number; slug: string; title: string; totalChapters: number | null };
   chapter: ChapterData;
+  illustrations: Illustration[];
   hasPrev: boolean;
   hasNext: boolean;
   resume: ResumePosition | null;
 };
+
+// Public-domain museum artwork paired with the chapter (see schema.ts chapterIllustrations).
+// Rendered outside HighlightedText so it never shifts TTS chunk indices. Tapping the image opens
+// the museum's own page for the full-resolution version and object details.
+function IllustrationFigure({ illustration, lang }: { illustration: Illustration; lang: "ko" | "en" }) {
+  return (
+    <figure className="mb-4 flex flex-col gap-2">
+      <a href={illustration.sourceUrl} target="_blank" rel="noopener noreferrer">
+        {/* Plain <img>: hotlinked museum IIIF/CDN images, already web-sized — no need for next/image optimization. */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={illustration.imageUrl}
+          alt={`${illustration.title} — ${illustration.artist}`}
+          loading="lazy"
+          className="max-h-[70vh] w-full rounded-lg bg-[var(--clay-tint)] object-contain"
+        />
+      </a>
+      <figcaption className="flex flex-col gap-1 text-xs text-[var(--ink-soft)]">
+        <span className="text-sm text-[var(--ink)]">{lang === "en" ? illustration.captionEn : illustration.captionKo}</span>
+        <span>
+          <em>{illustration.title}</em> · {illustration.artist}
+          {illustration.dateDisplay ? `, ${illustration.dateDisplay}` : ""} · {illustration.credit}
+        </span>
+      </figcaption>
+    </figure>
+  );
+}
 
 function HighlightedText({
   text,
@@ -264,6 +304,9 @@ export default function ChapterPage() {
                 </div>
               )}
             </div>
+            {data.illustrations.map((illustration) => (
+              <IllustrationFigure key={illustration.id} illustration={illustration} lang={lang} />
+            ))}
             {markerIndex !== null && !isSpeakingThis && (
               <p className="mb-2 text-xs text-[var(--ink-soft)]">🔖 {t("chapter.resumeHint")}</p>
             )}

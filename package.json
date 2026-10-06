@@ -10,7 +10,9 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:seed": "tsx src/db/seed.ts",
-    "db:ingest-samgukji": "tsx src/db/ingestSamgukji.ts"
+    "db:ingest-samgukji": "tsx src/db/ingestSamgukji.ts",
+    "db:ingest-chatterley": "tsx src/db/ingestChatterley.ts",
+    "db:pregenerate": "tsx src/db/pregenerate.ts"
   },
   "dependencies": {
     "@vercel/blob": "^2.6.1",
