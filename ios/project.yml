@@ -1,0 +1,44 @@
+# XcodeGen 스펙. .xcodeproj 는 `xcodegen generate` 로 언제든 다시 만든다 — wordflow/ios 와 같은 방식.
+name: Storyflow
+options:
+  bundleIdPrefix: com.slstudio
+  deploymentTarget:
+    iOS: "17.0"
+  createIntermediateGroups: true
+
+settings:
+  base:
+    DEVELOPMENT_TEAM: DX4YLNP9RK
+    CODE_SIGN_STYLE: Automatic
+    MARKETING_VERSION: "0.1"
+    # 올릴 때마다 하나씩 올린다. 안 올리면 App Store Connect 가 거절한다.
+    CURRENT_PROJECT_VERSION: "1"
+    SWIFT_VERSION: "5.0"
+
+targets:
+  Storyflow:
+    type: application
+    platform: iOS
+    sources:
+      - path: Storyflow
+    # 챕터 낭독을 켜 두고 화면을 끄는 게 기본 사용법이다. 이게 없으면 화면이 꺼지는 순간 멎는다.
+    # `INFOPLIST_KEY_UIBackgroundModes` 로는 안 된다 — Xcode 가 모르는 키는 조용히 버리므로
+    # 배열로 주는 이 키는 파일에 직접 적는다 (wordflow/ios 참고).
+    info:
+      path: Storyflow/Info.plist
+      properties:
+        UIBackgroundModes: [audio]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.slstudio.storyflow
+        PRODUCT_NAME: Storyflow
+        GENERATE_INFOPLIST_FILE: true
+        INFOPLIST_KEY_CFBundleDisplayName: Storyflow
+        INFOPLIST_KEY_UILaunchScreen_Generation: true
+        INFOPLIST_KEY_UIStatusBarStyle: UIStatusBarStyleDefault
+        INFOPLIST_KEY_UISupportedInterfaceOrientations: UIInterfaceOrientationPortrait
+        # 아이폰 전용 — 아이패드가 대상이 되면 네 방향 전부를 요구해서 업로드가 거절된다.
+        TARGETED_DEVICE_FAMILY: "1"
+        # 없으면 업로드할 때마다 수출 규정 질문을 손으로 답해야 한다.
+        INFOPLIST_KEY_ITSAppUsesNonExemptEncryption: false
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
