@@ -34,12 +34,22 @@ type Illustration = {
   captionEn: string;
 };
 
+type SavedMark = {
+  id: number;
+  chapterNumber: number;
+  chunkIndex: number | null;
+  lang: "ko" | "en" | null;
+  excerpt: string;
+  note: string | null;
+};
+
 type ResumePosition = { chunkIndex: number; lang: "ko" | "en" };
 
 type ChapterResponse = {
   book: { id: number; slug: string; title: string; totalChapters: number | null };
   chapter: ChapterData;
   illustrations: Illustration[];
+  marks: SavedMark[];
   hasPrev: boolean;
   hasNext: boolean;
   resume: ResumePosition | null;
@@ -77,12 +87,14 @@ function HighlightedText({
   isActiveSection,
   activeChunkIndex,
   markerIndex,
+  savedIndices,
   onSentenceClick,
 }: {
   text: string;
   isActiveSection: boolean;
   activeChunkIndex: number | null;
   markerIndex: number | null;
+  savedIndices: Set<number>;
   onSentenceClick: (index: number) => void;
 }) {
   const chunks = splitIntoChunks(text);
@@ -91,6 +103,7 @@ function HighlightedText({
       {chunks.map((chunk, i) => {
         const isPlayingHere = isActiveSection && i === activeChunkIndex;
         const isMarked = !isActiveSection && i === markerIndex;
+        const isSaved = savedIndices.has(i);
         return (
           <span
             key={i}
@@ -104,13 +117,13 @@ function HighlightedText({
                 onSentenceClick(i);
               }
             }}
-            className={
+            className={`${
               isPlayingHere
                 ? "cursor-pointer rounded bg-[var(--clay-deep)] font-semibold text-[var(--paper-raised)] transition-colors"
                 : isMarked
                   ? "cursor-pointer rounded border-b-2 border-[var(--clay)] bg-[var(--clay-tint)] transition-colors"
                   : "cursor-pointer transition-colors hover:bg-[var(--clay-tint)]"
-            }
+            }${isSaved ? " underline decoration-[var(--clay)] decoration-2 underline-offset-4" : ""}`}
           >
             {chunk}
             {i < chunks.length - 1 ? " " : ""}
@@ -138,6 +151,13 @@ export default function ChapterPage() {
   // PlaybackProvider is the live position once playing; this is just where to resume from before
   // that starts, and where to scroll/mark on arrival).
   const [resumePosition, setResumePosition] = useState<ResumePosition | null>(null);
+  // Hand-placed bookmarks in this chapter (see schema.ts savedMarks). While markMode is on,
+  // tapping a sentence toggles a bookmark on it instead of starting playback from it.
+  const [marks, setMarks] = useState<SavedMark[]>([]);
+  const [markMode, setMarkMode] = useState(false);
+  // True when the page was opened from the book page's bookmark list (?at=&lang=) — the marked
+  // sentence is then that bookmark, not the automatic resume point.
+  const [openedFromMark, setOpenedFromMark] = useState(false);
 
   useEffect(() => {
     const stored = localStorage.getItem(LANG_KEY);
@@ -152,6 +172,9 @@ export default function ChapterPage() {
     setGenerating(false);
     setError(false);
     setResumePosition(null);
+    setMarks([]);
+    setMarkMode(false);
+    setOpenedFromMark(false);
     // A never-before-read chapter takes a few seconds to generate (see /api/books/[slug]/
     // chapters/[chapterNumber]) — flip a slower-feeling message on after a short delay instead of
     // always showing "불러오는 중" for what's usually an instant cached fetch.
@@ -163,7 +186,15 @@ export default function ChapterPage() {
       })
       .then((json: ChapterResponse) => {
         setData(json);
-        if (json.resume) {
+        setMarks(json.marks);
+        const query = new URLSearchParams(window.location.search);
+        const at = Number(query.get("at"));
+        const atLang = query.get("lang");
+        if (query.has("at") && Number.isInteger(at) && (atLang === "ko" || atLang === "en")) {
+          setResumePosition({ chunkIndex: at, lang: atLang });
+          setLang(atLang);
+          setOpenedFromMark(true);
+        } else if (json.resume) {
           setResumePosition(json.resume);
           // Land the reader on the language they left off in, not whatever this device's last
           // global toggle was — a chunkIndex only makes sense paired with its own language's text.
@@ -218,6 +249,42 @@ export default function ChapterPage() {
     const text = lang === "en" ? data.chapter.storyEn : data.chapter.storyKo;
     return text ? splitIntoChunks(text) : [];
   }, [data, lang]);
+
+  const savedIndices = useMemo(
+    () => new Set(marks.filter((m) => m.lang === lang && m.chunkIndex !== null).map((m) => m.chunkIndex!)),
+    [marks, lang],
+  );
+  const chapterMark = marks.find((m) => m.chunkIndex === null);
+
+  async function addMark(body: { chunkIndex?: number; lang?: "ko" | "en"; excerpt: string }) {
+    if (!reader) return;
+    const res = await fetch(`/api/books/${slug}/marks`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ readerId: reader.id, chapterNumber, ...body }),
+    });
+    if (!res.ok) return;
+    const { mark } = (await res.json()) as { mark: SavedMark };
+    setMarks((prev) => (prev.some((m) => m.id === mark.id) ? prev : [...prev, mark]));
+  }
+
+  async function removeMark(id: number) {
+    if (!reader) return;
+    setMarks((prev) => prev.filter((m) => m.id !== id));
+    await fetch(`/api/books/${slug}/marks?readerId=${reader.id}&id=${id}`, { method: "DELETE" }).catch(() => {});
+  }
+
+  function toggleSentenceMark(index: number) {
+    const existing = marks.find((m) => m.lang === lang && m.chunkIndex === index);
+    if (existing) removeMark(existing.id);
+    else if (chunks[index]) addMark({ chunkIndex: index, lang, excerpt: chunks[index] });
+  }
+
+  function toggleChapterMark() {
+    if (!data) return;
+    if (chapterMark) removeMark(chapterMark.id);
+    else addMark({ excerpt: (lang === "en" ? data.chapter.titleEn : data.chapter.titleKo) ?? `Ch. ${chapterNumber}` });
+  }
 
   function setLanguage(next: "ko" | "en") {
     setLang(next);
@@ -280,35 +347,58 @@ export default function ChapterPage() {
               <h1 className="text-lg font-semibold text-[var(--ink)]">
                 Ch. {chapterNumber} · {lang === "en" ? data.chapter.titleEn : data.chapter.titleKo}
               </h1>
-              {!isSpeakingThis ? (
+              <div className="flex shrink-0 items-center gap-2">
                 <button
-                  onClick={() => speak(markerIndex ?? undefined)}
-                  className="shrink-0 text-lg"
-                  aria-label={t("chapter.listen")}
+                  onClick={() => setMarkMode((on) => !on)}
+                  aria-pressed={markMode}
+                  aria-label={t("marks.toggleMode")}
+                  className={`rounded-full px-1.5 text-lg ${markMode ? "bg-[var(--clay-tint)] ring-2 ring-[var(--clay)]" : ""}`}
                 >
-                  🔊
+                  🔖
                 </button>
-              ) : (
-                <div className="flex shrink-0 items-center gap-2">
+                {!isSpeakingThis ? (
                   <button
-                    onClick={() => (speakState === "paused" ? resume() : pause())}
-                    disabled={speakState === "loading"}
-                    className="text-lg disabled:opacity-50"
-                    aria-label={speakState === "paused" ? t("playback.resume") : t("playback.pause")}
+                    onClick={() => speak(markerIndex ?? undefined)}
+                    className="shrink-0 text-lg"
+                    aria-label={t("chapter.listen")}
                   >
-                    {speakState === "loading" ? "…" : speakState === "paused" ? "▶️" : "⏸️"}
+                    🔊
                   </button>
-                  <button onClick={stop} className="text-lg" aria-label={t("playback.stop")}>
-                    ⏹️
-                  </button>
-                </div>
-              )}
+                ) : (
+                  <div className="flex shrink-0 items-center gap-2">
+                    <button
+                      onClick={() => (speakState === "paused" ? resume() : pause())}
+                      disabled={speakState === "loading"}
+                      className="text-lg disabled:opacity-50"
+                      aria-label={speakState === "paused" ? t("playback.resume") : t("playback.pause")}
+                    >
+                      {speakState === "loading" ? "…" : speakState === "paused" ? "▶️" : "⏸️"}
+                    </button>
+                    <button onClick={stop} className="text-lg" aria-label={t("playback.stop")}>
+                      ⏹️
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
+            {markMode && (
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-lg bg-[var(--clay-tint)] px-3 py-2 text-xs text-[var(--ink)]">
+                <span>{t("marks.modeHint")}</span>
+                <button
+                  onClick={toggleChapterMark}
+                  className="rounded-full border border-[var(--clay)] px-2 py-1 font-medium"
+                >
+                  {chapterMark ? `✓ ${t("marks.chapterSaved")}` : `+ ${t("marks.saveChapter")}`}
+                </button>
+              </div>
+            )}
             {data.illustrations.map((illustration) => (
               <IllustrationFigure key={illustration.id} illustration={illustration} lang={lang} />
             ))}
             {markerIndex !== null && !isSpeakingThis && (
-              <p className="mb-2 text-xs text-[var(--ink-soft)]">🔖 {t("chapter.resumeHint")}</p>
+              <p className="mb-2 text-xs text-[var(--ink-soft)]">
+                🔖 {openedFromMark ? t("marks.jumpHint") : t("chapter.resumeHint")}
+              </p>
             )}
             {chunks.length > 0 ? (
               <HighlightedText
@@ -316,7 +406,8 @@ export default function ChapterPage() {
                 isActiveSection={isSpeakingThis}
                 activeChunkIndex={activeChunkIndex}
                 markerIndex={markerIndex}
-                onSentenceClick={(i) => speak(i)}
+                savedIndices={savedIndices}
+                onSentenceClick={(i) => (markMode ? toggleSentenceMark(i) : speak(i))}
               />
             ) : (
               <p className="text-sm text-[var(--ink-soft)]">{t("chapter.empty")}</p>

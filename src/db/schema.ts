@@ -126,6 +126,28 @@ export const bookmarks = pgTable(
   (t) => [unique().on(t.readerId, t.bookId)],
 );
 
+// Bookmarks the reader places by hand — any number per book, unlike `bookmarks` above, which is
+// the single automatic "where did I leave off" pointer. A row marks either one sentence
+// (chunkIndex + lang, indexing splitIntoChunks of that language's story text, same convention as
+// bookmarks.chunkIndex) or, with both null, the whole chapter (handy for an art-tour painting).
+// `excerpt` snapshots the sentence (or chapter title) at save time so the list reads well even if
+// a chapter is ever regenerated and its chunk indices shift. `note` is the reader's own memo.
+export const savedMarks = pgTable("saved_marks", {
+  id: serial("id").primaryKey(),
+  readerId: integer("reader_id")
+    .notNull()
+    .references(() => readers.id, { onDelete: "cascade" }),
+  bookId: integer("book_id")
+    .notNull()
+    .references(() => books.id, { onDelete: "cascade" }),
+  chapterNumber: integer("chapter_number").notNull(),
+  chunkIndex: integer("chunk_index"),
+  lang: varchar("lang", { length: 4 }), // "ko" | "en", null for a whole-chapter mark
+  excerpt: text("excerpt").notNull(),
+  note: text("note"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
 // One row per reader/book/calendar-day, storing the best (max) overall book-progress percentage
 // reached that day — the data behind the "이 추세면 언제 다 읽나" pace projection (mirrors
 // Wordflow's trailing-pace projectedCompletionDate in src/lib/progress.ts there, adapted from
@@ -157,3 +179,4 @@ export type Chapter = typeof chapters.$inferSelect;
 export type Bookmark = typeof bookmarks.$inferSelect;
 export type ProgressSnapshot = typeof progressSnapshots.$inferSelect;
 export type ChapterIllustration = typeof chapterIllustrations.$inferSelect;
+export type SavedMark = typeof savedMarks.$inferSelect;

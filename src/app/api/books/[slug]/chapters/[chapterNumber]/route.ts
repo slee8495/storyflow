@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { eq, and, asc } from "drizzle-orm";
 import { db } from "@/db";
-import { books, chapters, bookmarks, chapterIllustrations } from "@/db/schema";
+import { books, chapters, bookmarks, chapterIllustrations, savedMarks, type SavedMark } from "@/db/schema";
 import { ensureChapterContent } from "@/lib/generateChapter";
 
 // A never-before-read chapter is generated inline on this request (two parallel Claude calls, see
@@ -15,7 +15,8 @@ export const maxDuration = 300;
 // request, and — when `readerId` is passed — the reader's saved in-chapter sentence position
 // (`resume`), but only when their bookmark's chapterNumber matches THIS chapter; a bookmark
 // pointing at a different chapter has no meaningful resume position here. Also returns the
-// chapter's curated artwork (`illustrations`, see schema.ts chapterIllustrations), if any.
+// chapter's curated artwork (`illustrations`, see schema.ts chapterIllustrations), if any, and the
+// reader's hand-placed bookmarks in this chapter (`marks`, see ../../marks/route.ts).
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ slug: string; chapterNumber: string }> },
@@ -55,7 +56,14 @@ export async function GET(
   const hasNext = Boolean(nextRow);
 
   let resume: { chunkIndex: number; lang: "ko" | "en" } | null = null;
+  let marks: SavedMark[] = [];
   if (readerId) {
+    marks = await db
+      .select()
+      .from(savedMarks)
+      .where(
+        and(eq(savedMarks.readerId, readerId), eq(savedMarks.bookId, book.id), eq(savedMarks.chapterNumber, chapterNum)),
+      );
     const [mark] = await db
       .select()
       .from(bookmarks)
@@ -70,6 +78,7 @@ export async function GET(
     book: { id: book.id, slug: book.slug, title: book.title, totalChapters: book.totalChapters },
     chapter,
     illustrations,
+    marks,
     hasPrev,
     hasNext,
     resume,
