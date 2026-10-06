@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { splitIntoChunks } from "@/lib/speak";
@@ -12,6 +12,58 @@ import { useUiLanguage } from "../../../UiLanguageProvider";
 const LANG_KEY = "storyflow:lang";
 const RESUME_MARKER_ID = "resume-marker";
 const TOOLBAR_ID = "chapter-toolbar";
+const ILLUSTRATION_PANEL_ID = "chapter-illustrations";
+const CHUNK_ATTR = "data-chunk";
+
+// The viewport line just below everything pinned at the top (site header, language toolbar,
+// illustrations) — i.e. where the reader's eyes are on the text.
+function readingLineY() {
+  const bottoms = ["body header", `#${TOOLBAR_ID}`, `#${ILLUSTRATION_PANEL_ID}`].map(
+    (selector) => document.querySelector(selector)?.getBoundingClientRect().bottom ?? 0,
+  );
+  return Math.max(...bottoms) + 8;
+}
+
+function chunkSpan(index: number) {
+  return document.querySelector<HTMLElement>(`[${CHUNK_ATTR}="${index}"]`);
+}
+
+// How far through the text (0–1, by characters) the reading line currently sits, or null when
+// the text hasn't scrolled up to the reading line yet. Translations don't split into the same
+// sentences, so position is carried across a language switch as this proportion.
+function readingProgress(chunks: string[]): number | null {
+  const lineY = readingLineY();
+  const total = chunks.reduce((sum, c) => sum + c.length, 0);
+  if (total === 0) return null;
+  let before = 0;
+  for (let i = 0; i < chunks.length; i++) {
+    const rect = chunkSpan(i)?.getBoundingClientRect();
+    if (!rect) return null;
+    if (i === 0 && rect.top >= lineY) return null;
+    if (rect.bottom > lineY) {
+      const within = rect.height > 0 ? Math.min(Math.max((lineY - rect.top) / rect.height, 0), 1) : 0;
+      return (before + within * chunks[i].length) / total;
+    }
+    before += chunks[i].length;
+  }
+  return 1;
+}
+
+// Scrolls so the point `progress` (0–1, by characters) through the text lands on the reading line.
+function scrollToProgress(chunks: string[], progress: number) {
+  const total = chunks.reduce((sum, c) => sum + c.length, 0);
+  let remaining = progress * total;
+  for (let i = 0; i < chunks.length; i++) {
+    if (remaining <= chunks[i].length || i === chunks.length - 1) {
+      const rect = chunkSpan(i)?.getBoundingClientRect();
+      if (!rect) return;
+      const within = chunks[i].length > 0 ? Math.min(remaining / chunks[i].length, 1) : 0;
+      window.scrollBy(0, rect.top + within * rect.height - readingLineY());
+      return;
+    }
+    remaining -= chunks[i].length;
+  }
+}
 const sourceId = (slug: string, chapterNumber: number) => `chapter-${slug}-${chapterNumber}`;
 
 type ChapterData = {
@@ -75,6 +127,7 @@ function IllustrationPanel({
   return (
     <>
       <div
+        id={ILLUSTRATION_PANEL_ID}
         className="sticky z-[5] -mx-4 mb-3 border-b border-[var(--line)] bg-[var(--paper-raised)] px-4 py-2"
         style={{ top: stickyTop }}
       >
@@ -149,6 +202,7 @@ function HighlightedText({
         return (
           <span
             key={i}
+            {...{ [CHUNK_ATTR]: i }}
             id={isMarked ? RESUME_MARKER_ID : undefined}
             role="button"
             tabIndex={0}
@@ -328,7 +382,18 @@ export default function ChapterPage() {
     else addMark({ excerpt: (lang === "en" ? data.chapter.titleEn : data.chapter.titleKo) ?? `Ch. ${chapterNumber}` });
   }
 
+  // Reading position to restore once the other language's text has rendered (see setLanguage).
+  const pendingProgress = useRef<number | null>(null);
+
+  useLayoutEffect(() => {
+    if (pendingProgress.current === null) return;
+    scrollToProgress(chunks, pendingProgress.current);
+    pendingProgress.current = null;
+  }, [chunks]);
+
   function setLanguage(next: "ko" | "en") {
+    if (next === lang) return;
+    pendingProgress.current = readingProgress(chunks);
     setLang(next);
     localStorage.setItem(LANG_KEY, next);
   }
