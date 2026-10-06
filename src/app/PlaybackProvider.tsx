@@ -55,6 +55,15 @@ export function PlaybackProvider({ children }: { children: React.ReactNode }) {
         setActiveChunkIndex(index);
       },
       startIndex,
+      title: lbl,
+      onExternalPause: () => {
+        if (genRef.current !== gen) return;
+        setSpeakState((cur) => (cur === "playing" ? "paused" : cur));
+      },
+      onExternalResume: () => {
+        if (genRef.current !== gen) return;
+        setSpeakState((cur) => (cur === "paused" ? "playing" : cur));
+      },
     }).then(() => {
       if (genRef.current !== gen) return; // superseded by a newer playText() or an explicit stop()
       setSpeakState(null);

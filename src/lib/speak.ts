@@ -29,11 +29,14 @@
 // previous one is still preparing, the old call would eventually finish and start playing right
 // on top of the new one. A monotonic token invalidates any in-flight call as soon as a newer one
 // starts, so stale audio never gets played.
+import { NativeAudio, nativeAudioAvailable } from "./nativeAudio";
+
 const audioBufferCache = new Map<string, ArrayBuffer>();
 const inFlight = new Map<string, Promise<ArrayBuffer | null>>();
 // Reused across sessions instead of a fresh `new Audio()` every time — see the file header for
-// why a single gesture-started element matters for background playback.
-let currentAudio: HTMLAudioElement | null = null;
+// why a single gesture-started element matters for background playback. Inside the iPhone app
+// this is a NativeAudio bridge instead (see nativeAudio.ts for why).
+let currentAudio: HTMLAudioElement | NativeAudio | null = null;
 // Lazily created and reused — one AudioContext per page, not one per speak() call.
 let audioContext: AudioContext | null = null;
 // Resolves the playback promise currently in flight, if any — stopSpeaking() uses this to
@@ -101,7 +104,8 @@ export function stopSpeaking() {
   playToken++;
   activeCleanup?.();
   activeCleanup = null;
-  currentAudio?.pause();
+  if (currentAudio instanceof NativeAudio) currentAudio.stop();
+  else currentAudio?.pause();
   if (typeof window !== "undefined" && window.speechSynthesis) {
     window.speechSynthesis.cancel();
   }
@@ -269,7 +273,16 @@ function audioBufferToWavBlob(buffer: AudioBuffer): Blob {
 
 export async function speak(
   text: string,
-  opts: { onPlaybackStart?: () => void; onChunkStart?: (index: number) => void; startIndex?: number } = {},
+  opts: {
+    onPlaybackStart?: () => void;
+    onChunkStart?: (index: number) => void;
+    startIndex?: number;
+    // Shown on the lock screen / CarPlay when the iPhone app plays natively.
+    title?: string;
+    // Paused or resumed from outside the page (lock screen, CarPlay, a call ending), so the UI can follow.
+    onExternalPause?: () => void;
+    onExternalResume?: () => void;
+  } = {},
 ) {
   if (!text.trim()) return;
   stopSpeaking(); // also bumps playToken, so capture `token` only after this
@@ -321,7 +334,8 @@ export async function speak(
 
   const combined = await renderCombinedBuffer(decodedOk.map((c) => c.buffer));
   if (token !== playToken) return;
-  const url = URL.createObjectURL(audioBufferToWavBlob(combined));
+  const blob = audioBufferToWavBlob(combined);
+  const url = URL.createObjectURL(blob);
   if (activeObjectUrl) URL.revokeObjectURL(activeObjectUrl);
   activeObjectUrl = url;
 
@@ -336,7 +350,13 @@ export async function speak(
     return { start, index: c.index };
   });
 
-  const audio = currentAudio ?? new Audio();
+  const audio = nativeAudioAvailable()
+    ? currentAudio instanceof NativeAudio
+      ? currentAudio
+      : new NativeAudio()
+    : currentAudio instanceof HTMLAudioElement
+      ? currentAudio
+      : new Audio();
   currentAudio = audio;
 
   await new Promise<void>((resolve) => {
@@ -344,7 +364,10 @@ export async function speak(
 
     let announced = false;
     const onPlaying = () => {
-      if (announced) return;
+      if (announced) {
+        opts.onExternalResume?.();
+        return;
+      }
       announced = true;
       opts.onPlaybackStart?.();
       opts.onChunkStart?.(offsets[0].index);
@@ -358,10 +381,12 @@ export async function speak(
       }
       opts.onChunkStart?.(current);
     };
+    const onPause = () => opts.onExternalPause?.();
     const onEnded = () => finish();
     const onError = () => finish();
     function finish() {
       audio.removeEventListener("playing", onPlaying);
+      audio.removeEventListener("pause", onPause);
       audio.removeEventListener("timeupdate", onTimeUpdate);
       audio.removeEventListener("ended", onEnded);
       audio.removeEventListener("error", onError);
@@ -372,11 +397,16 @@ export async function speak(
     activeCleanup = finish;
 
     audio.addEventListener("playing", onPlaying);
+    audio.addEventListener("pause", onPause);
     audio.addEventListener("timeupdate", onTimeUpdate);
     audio.addEventListener("ended", onEnded, { once: true });
     audio.addEventListener("error", onError, { once: true });
 
-    audio.src = url;
-    audio.play().catch(() => finish());
+    if (audio instanceof NativeAudio) {
+      audio.load(blob, opts.title ?? "Storyflow").catch(() => finish());
+    } else {
+      audio.src = url;
+      audio.play().catch(() => finish());
+    }
   });
 }

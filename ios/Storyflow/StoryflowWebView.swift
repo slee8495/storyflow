@@ -15,10 +15,13 @@ struct StoryflowWebView: UIViewRepresentable {
         let config = WKWebViewConfiguration()
         config.allowsInlineMediaPlayback = true
         config.mediaTypesRequiringUserActionForPlayback = []
+        // 낭독은 웹뷰 대신 앱이 직접 튼다 (NativeAudio.swift).
+        config.userContentController.add(context.coordinator.audio, name: NativeAudio.handlerName)
 
         let webView = WKWebView(frame: .zero, configuration: config)
         webView.uiDelegate = context.coordinator
         webView.navigationDelegate = context.coordinator
+        context.coordinator.audio.webView = webView
         webView.allowsBackForwardNavigationGestures = true
         webView.scrollView.bounces = false
         webView.load(URLRequest(url: Storyflow.homeURL))
@@ -28,6 +31,8 @@ struct StoryflowWebView: UIViewRepresentable {
     func updateUIView(_ webView: WKWebView, context: Context) {}
 
     final class Coordinator: NSObject, WKUIDelegate, WKNavigationDelegate {
+        let audio = NativeAudio()
+
         private func isInside(_ url: URL) -> Bool {
             guard let host = url.host() else { return true }
             return host.hasSuffix("storyflow-pied.vercel.app") || host.hasSuffix("vercel.app")
