@@ -58,28 +58,61 @@ type ChapterResponse = {
 // Public-domain museum artwork paired with the chapter (see schema.ts chapterIllustrations).
 // Rendered outside HighlightedText so it never shifts TTS chunk indices. Tapping the image opens
 // the museum's own page for the full-resolution version and object details.
-function IllustrationFigure({ illustration, lang }: { illustration: Illustration; lang: "ko" | "en" }) {
+// The images stay pinned under the site header while the reader scrolls through the chapter text
+// (sticky within the chapter card, so they release once the card ends). Height is capped so the
+// text below keeps most of the screen; the long captions scroll normally underneath.
+function IllustrationPanel({ illustrations, lang }: { illustrations: Illustration[]; lang: "ko" | "en" }) {
+  const headerHeight = useHeaderHeight();
+  if (illustrations.length === 0) return null;
   return (
-    <figure className="mb-4 flex flex-col gap-2">
-      <a href={illustration.sourceUrl} target="_blank" rel="noopener noreferrer">
-        {/* Plain <img>: hotlinked museum IIIF/CDN images, already web-sized — no need for next/image optimization. */}
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={illustration.imageUrl}
-          alt={`${illustration.title} — ${illustration.artist}`}
-          loading="lazy"
-          className="max-h-[70vh] w-full rounded-lg bg-[var(--clay-tint)] object-contain"
-        />
-      </a>
-      <figcaption className="flex flex-col gap-1 text-xs text-[var(--ink-soft)]">
-        <span className="text-sm text-[var(--ink)]">{lang === "en" ? illustration.captionEn : illustration.captionKo}</span>
-        <span>
-          <em>{illustration.title}</em> · {illustration.artist}
-          {illustration.dateDisplay ? `, ${illustration.dateDisplay}` : ""} · {illustration.credit}
-        </span>
-      </figcaption>
-    </figure>
+    <>
+      <div
+        className="sticky z-[5] -mx-4 mb-3 border-b border-[var(--line)] bg-[var(--paper-raised)] px-4 py-2"
+        style={{ top: headerHeight }}
+      >
+        <div className={`grid gap-2 ${illustrations.length > 1 ? "grid-cols-2" : "grid-cols-1"}`}>
+          {illustrations.map((illustration) => (
+            <a key={illustration.id} href={illustration.sourceUrl} target="_blank" rel="noopener noreferrer">
+              {/* Plain <img>: hotlinked museum IIIF/CDN images, already web-sized — no need for next/image optimization. */}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={illustration.imageUrl}
+                alt={`${illustration.title} — ${illustration.artist}`}
+                className="max-h-[32vh] w-full rounded-lg bg-[var(--clay-tint)] object-contain"
+              />
+            </a>
+          ))}
+        </div>
+      </div>
+      {illustrations.map((illustration) => (
+        <figure key={illustration.id} className="mb-4">
+          <figcaption className="flex flex-col gap-1 text-xs text-[var(--ink-soft)]">
+            <span className="text-sm text-[var(--ink)]">{lang === "en" ? illustration.captionEn : illustration.captionKo}</span>
+            <span>
+              <em>{illustration.title}</em> · {illustration.artist}
+              {illustration.dateDisplay ? `, ${illustration.dateDisplay}` : ""} · {illustration.credit}
+            </span>
+          </figcaption>
+        </figure>
+      ))}
+    </>
   );
+}
+
+// Height of the layout's sticky site header (safe-area inset + font-scaled title), so the pinned
+// illustrations sit just below it instead of underneath it.
+function useHeaderHeight() {
+  const [height, setHeight] = useState(0);
+  useEffect(() => {
+    const header = document.querySelector("body header");
+    if (!header) return;
+    const update = () => setHeight(header.getBoundingClientRect().height);
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(header);
+    return () => observer.disconnect();
+  }, []);
+  return height;
 }
 
 function HighlightedText({
@@ -392,9 +425,7 @@ export default function ChapterPage() {
                 </button>
               </div>
             )}
-            {data.illustrations.map((illustration) => (
-              <IllustrationFigure key={illustration.id} illustration={illustration} lang={lang} />
-            ))}
+            <IllustrationPanel illustrations={data.illustrations} lang={lang} />
             {markerIndex !== null && !isSpeakingThis && (
               <p className="mb-2 text-xs text-[var(--ink-soft)]">
                 🔖 {openedFromMark ? t("marks.jumpHint") : t("chapter.resumeHint")}
