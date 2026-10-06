@@ -12,6 +12,7 @@
     "db:seed": "tsx src/db/seed.ts",
     "db:ingest-samgukji": "tsx src/db/ingestSamgukji.ts",
     "db:ingest-chatterley": "tsx src/db/ingestChatterley.ts",
+    "db:ingest-art-tour": "tsx src/db/ingestArtTour.ts",
     "db:pregenerate": "tsx src/db/pregenerate.ts"
   },
   "dependencies": {

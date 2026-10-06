@@ -28,6 +28,16 @@ const SEED_BOOKS = [
     descriptionEn:
       "In a cold country house after the war, Constance finds her body and her heart again through love with the gamekeeper.",
   },
+  {
+    slug: "art-tour",
+    title: "미술관 산책: 그림으로 읽는 서양미술사",
+    titleEn: "A Walk Through the Museum: The Story of Western Art",
+    author: "Storyflow 오리지널 (곰브리치 『서양미술사』에서 영감)",
+    totalChapters: null as number | null,
+    coverColor: "#8a5a2b",
+    description: "이집트부터 드가, 클림트까지. 하루 한 작품씩, 그림을 보며 읽는 서양미술의 흐름.",
+    descriptionEn: "From ancient Egypt to Degas and Klimt — one artwork a day, the story of Western art told beside the pictures.",
+  },
 ];
 
 async function main() {

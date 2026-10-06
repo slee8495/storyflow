@@ -47,6 +47,27 @@ const BOOK_GUIDANCE: Record<string, string> = {
     "characters or recapping earlier parts.",
 };
 
+const DEFAULT_ROLE =
+  "You retell classic novel chapters in an easy, engaging story-style voice for a personal reading app called Storyflow. " +
+  "The reader wants to finally get through a book they've always wanted to read but found the original prose too dense or " +
+  "archaic to finish — your job is to make the SAME story easy and fun to follow, not to summarize or abridge it.";
+
+// Books that aren't retellings of a source text at all replace DEFAULT_ROLE. The art tour is an
+// original book: each row's sourceText is a curated fact sheet about one artwork (see
+// data/art-tour.json / ingestArtTour.ts), and the chapter is written fresh from it, so the
+// "same events, don't abridge" framing of the novel prompt doesn't apply.
+const BOOK_ROLES: Record<string, string> = {
+  "art-tour":
+    "You write one chapter of an original, warm, museum-docent style book about the story of Western art for a personal " +
+    "reading app called Storyflow — in the spirit of Gombrich's The Story of Art, but entirely your own words. Each chapter " +
+    "is about ONE artwork, which the reader sees as a picture above your text. The source is a fact sheet: build the " +
+    "chapter only on its facts and on well-established art history — never invent dates, names, or anecdotes. Shape: open " +
+    "with a hook that makes the reader look at the picture; guide their eye to concrete details; explain the context and " +
+    "why this work changed how people made or saw art; end with a short bridge toward what comes next in the story. The " +
+    "reader is an adult who fell in love with Degas's nudes, so when the work involves the nude body, discuss its beauty, " +
+    "sensuality and the way it is looked at openly and thoughtfully. Aim for roughly 600–900 words.",
+};
+
 // Korean and English are generated as two independent, parallel calls rather than one bilingual
 // object. A Lady Chatterley part (~3k source words) retold in both languages in a single call ran
 // ~14k output tokens / ~340s — past Vercel's 300s function limit — while each language alone is
@@ -91,10 +112,8 @@ async function generateInLanguage(chapter: Chapter, book: Book, lang: Lang) {
         model: BOOK_MODELS[book.slug] ?? MODEL,
         schema: chapterSchema,
         system:
-          "You retell classic novel chapters in an easy, engaging story-style voice for a personal reading app called Storyflow. " +
-          "The reader wants to finally get through a book they've always wanted to read but found the original prose too dense or " +
-          "archaic to finish — your job is to make the SAME story easy and fun to follow, not to summarize or abridge it. " +
-          `Write both fields in ${name}. ${style} ` +
+          (BOOK_ROLES[book.slug] ?? DEFAULT_ROLE) +
+          ` Write both fields in ${name}. ${style} ` +
           STYLE_GUIDANCE +
           (BOOK_GUIDANCE[book.slug] ? ` ${BOOK_GUIDANCE[book.slug]}` : ""),
         prompt: [

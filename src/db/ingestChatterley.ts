@@ -1,8 +1,9 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { eq, and, inArray } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { db } from "./index";
-import { books, chapters, chapterIllustrations } from "./schema";
+import { books, chapters } from "./schema";
+import { replaceIllustrations, type IllustrationEntry } from "./illustrations";
 
 // One-off ingestion for D. H. Lawrence's Lady Chatterley's Lover — Project Gutenberg ebook
 // #73144 (gutenberg.org/ebooks/73144), the unexpurgated third-manuscript text (Florence/Orioli,
@@ -63,17 +64,6 @@ export function parseChatterley(raw: string): { sourceTitle: string; sourceText:
   });
 }
 
-type IllustrationEntry = {
-  chapterNumber: number;
-  imageUrl: string;
-  title: string;
-  artist: string;
-  dateDisplay?: string;
-  credit: string;
-  sourceUrl: string;
-  captionKo: string;
-  captionEn: string;
-};
 
 async function main() {
   const parsed = parseChatterley(readFileSync(SOURCE_PATH, "utf-8"));
@@ -105,33 +95,21 @@ async function main() {
     console.log(`no ${ILLUSTRATIONS_PATH} yet — skipping illustrations`);
     process.exit(0);
   }
-  const illustrations: IllustrationEntry[] = JSON.parse(readFileSync(ILLUSTRATIONS_PATH, "utf-8"));
+  const illustrations: (IllustrationEntry & { chapterNumber: number })[] = JSON.parse(
+    readFileSync(ILLUSTRATIONS_PATH, "utf-8"),
+  );
   const rows = await db
     .select({ id: chapters.id, chapterNumber: chapters.chapterNumber })
     .from(chapters)
     .where(eq(chapters.bookId, book.id));
+  const byChapterId = new Map(rows.map((r) => [r.id, [] as IllustrationEntry[]]));
   const idByNumber = new Map(rows.map((r) => [r.chapterNumber, r.id]));
-
-  await db.delete(chapterIllustrations).where(inArray(chapterIllustrations.chapterId, rows.map((r) => r.id)));
-  const positionByChapter = new Map<number, number>();
-  for (const entry of illustrations) {
-    const chapterId = idByNumber.get(entry.chapterNumber);
-    if (!chapterId) throw new Error(`illustration references missing chapter ${entry.chapterNumber}`);
-    const position = positionByChapter.get(entry.chapterNumber) ?? 0;
-    positionByChapter.set(entry.chapterNumber, position + 1);
-    await db.insert(chapterIllustrations).values({
-      chapterId,
-      position,
-      imageUrl: entry.imageUrl,
-      title: entry.title,
-      artist: entry.artist,
-      dateDisplay: entry.dateDisplay ?? null,
-      credit: entry.credit,
-      sourceUrl: entry.sourceUrl,
-      captionKo: entry.captionKo,
-      captionEn: entry.captionEn,
-    });
+  for (const { chapterNumber, ...entry } of illustrations) {
+    const chapterId = idByNumber.get(chapterNumber);
+    if (!chapterId) throw new Error(`illustration references missing chapter ${chapterNumber}`);
+    byChapterId.get(chapterId)!.push(entry);
   }
+  await replaceIllustrations(byChapterId);
   console.log(`loaded ${illustrations.length} illustrations`);
   process.exit(0);
 }
