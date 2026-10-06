@@ -307,7 +307,7 @@ highlight sync) on an actual device before considering this closed.**
   classics plus the art itself. Plan agreed on: (1) Lady Chatterley's Lover with public-domain
   paintings as illustrations, then (2) an original art-history "museum tour" book in the spirit of
   Gombrich's *Story of Art*. Gombrich itself is in copyright, so the tour is newly written around
-  open-access artworks rather than rewritten from his text. Part 2 hasn't been built yet.
+  open-access artworks rather than rewritten from his text.
 - Source: Project Gutenberg #73144 (unexpurgated 1928 Florence text), `data/chatterley-source.txt`.
   `src/db/ingestChatterley.ts` (`npm run db:ingest-chatterley`) splits each of the 19 chapters at
   paragraph boundaries into parts of at most about 3.5k words, giving **42 `chapters` rows**.
@@ -324,6 +324,40 @@ highlight sync) on an actual device before considering this closed.**
     near-verbatim English and a stiff, literal Korean.
   - Measured on Sonnet: about 200s per part, so the chapter route sets `maxDuration = 300`.
   - The whole book costs about $6 to generate.
+
+## Third book: 미술관 산책 art-history tour (added 2026-10-05)
+
+- Slug `art-tour`. The format is one artwork per chapter, 60 chapters, Egypt → Klimt/Schiele, with an epilogue
+  back to Degas and Norton Simon. A recurring "nude" thread runs through it (Kenneth Clark's naked/nude
+  vs. Berger's "who is looking").
+- `data/art-tour.json` is the curated outline: for each chapter, an English fact sheet (`notes`) plus
+  1–2 images (Met/AIC public domain; Wikimedia only for 2D PD-Art paintings).
+  `npm run db:ingest-art-tour` loads it. Editing a fact sheet clears `generatedAt`, so that
+  chapter regenerates.
+- Generation uses `BOOK_ROLES["art-tour"]` (original docent-style writing, not a retelling) on
+  Sonnet. It takes about 45s per chapter.
+
+## Hand-placed bookmarks (added 2026-10-05)
+
+- The `saved_marks` table (migration 0005) is separate from the automatic `bookmarks` resume
+  pointer. A mark can be a sentence (chunkIndex+lang) or a whole chapter, with an excerpt
+  snapshot and a note.
+- In a chapter, the 🔖 button toggles bookmark mode. The book page has a "내 북마크" list that
+  links with `?at=&lang=`.
+
+## iPhone app (added 2026-10-05)
+
+- `ios/` is an XcodeGen WKWebView shell around `storyflow-pied.vercel.app`, ported from
+  `wordflow/ios`. Bundle ID `com.slstudio.storyflow`, team DX4YLNP9RK.
+- Build: `cd ios && xcodegen generate`, then `xcodebuild ... archive` with the archive and
+  derived-data paths **outside iCloud**, then `-exportArchive` with ExportOptions
+  (`method app-store-connect`, `destination upload`).
+- Bump `CURRENT_PROJECT_VERSION` in `project.yml` for every upload.
+- The first upload failed with "Error Downloading App Information" because the App Store Connect
+  app record didn't exist yet. The operator has to create it once in the App Store Connect
+  web UI.
+- App icon: `src/lib/appIcon.tsx` `ICON_SVG` is the single source. The iOS
+  `AppIcon.png` is rendered from it at 1024px with alpha stripped.
 
 ## Status
 
