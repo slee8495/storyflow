@@ -363,6 +363,11 @@ highlight sync) on an actual device before considering this closed.**
   - Automatic signing archived fine, but it did **not** register the bundle ID. The bundle ID
     had to be added by hand in Certificates, Identifiers & Profiles before it showed up in
     the App Store Connect "New App" form.
+- Native narration (build 0.1 (2), 2026-10-06): playback crackled under CarPlay only. Inside the
+  app, `speak.ts` now hands the finished WAV to `ios/Storyflow/NativeAudio.swift` through the
+  `storyflowAudio` message handler (`src/lib/nativeAudio.ts`), and AVAudioPlayer plays it. The
+  likely cause was the web view `<audio>` being fed by a throttled background web process. This
+  was not verified in a car at the time. Browsers and build 1 still use `<audio>`.
 - App icon: `src/lib/appIcon.tsx` `ICON_SVG` is the single source. The iOS
   `AppIcon.png` is rendered from it at 1024px with alpha stripped.
 
