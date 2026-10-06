@@ -353,9 +353,16 @@ highlight sync) on an actual device before considering this closed.**
   derived-data paths **outside iCloud**, then `-exportArchive` with ExportOptions
   (`method app-store-connect`, `destination upload`).
 - Bump `CURRENT_PROJECT_VERSION` in `project.yml` for every upload.
-- The first upload failed with "Error Downloading App Information" because the App Store Connect
-  app record didn't exist yet. The operator has to create it once in the App Store Connect
-  web UI.
+- Distributed via TestFlight as of 2026-10-05. Build 0.1 (1) is installed on the operator's
+  iPhone.
+  - App Store Connect app: **"Storyflow SL Studio"** (id 6819523487). The name "Storyflow" was
+    taken on the App Store. The home-screen name is still "Storyflow".
+  - The internal TestFlight group "Me" has automatic distribution on.
+- Setup lessons:
+  - "Error Downloading App Information" on upload meant there was no app record yet.
+  - Automatic signing archived fine, but it did **not** register the bundle ID. The bundle ID
+    had to be added by hand in Certificates, Identifiers & Profiles before it showed up in
+    the App Store Connect "New App" form.
 - App icon: `src/lib/appIcon.tsx` `ICON_SVG` is the single source. The iOS
   `AppIcon.png` is rendered from it at 1024px with alpha stripped.
 
