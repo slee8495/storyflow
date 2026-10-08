@@ -135,9 +135,12 @@ function IllustrationPanel({
           {illustrations.map((illustration) => (
             <a key={illustration.id} href={illustration.sourceUrl} target="_blank" rel="noopener noreferrer">
               {/* Plain <img>: hotlinked museum IIIF/CDN images, already web-sized — no need for next/image optimization. */}
+              {/* no-referrer: the Art Institute of Chicago's IIIF server answers 403 to any request carrying another
+                  site's Referer (hotlink protection), which broke every artic.edu image; without it they load. */}
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={illustration.imageUrl}
+                referrerPolicy="no-referrer"
                 alt={`${illustration.title} — ${illustration.artist}`}
                 className="max-h-[32vh] w-full rounded-lg bg-[var(--clay-tint)] object-contain"
               />
