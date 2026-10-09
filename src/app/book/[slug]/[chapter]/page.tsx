@@ -3,6 +3,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
+import { getImageProps } from "next/image";
 import { splitIntoChunks } from "@/lib/speak";
 import { ReaderGate, useReader } from "../../../ReaderProvider";
 import { ChevronIcon } from "../../../ChevronIcon";
@@ -134,15 +135,13 @@ function IllustrationPanel({
         <div className={`grid gap-2 ${illustrations.length > 1 ? "grid-cols-2" : "grid-cols-1"}`}>
           {illustrations.map((illustration) => (
             <a key={illustration.id} href={illustration.sourceUrl} target="_blank" rel="noopener noreferrer">
-              {/* Plain <img>: hotlinked museum IIIF/CDN images, already web-sized — no need for next/image optimization. */}
-              {/* no-referrer: the Art Institute of Chicago's IIIF server answers 403 to any request carrying another
-                  site's Referer (hotlink protection), which broke every artic.edu image; without it they load. */}
-              {/* eslint-disable-next-line @next/next/no-img-element */}
+              {/* Served through Vercel's image optimizer where the museum allows it (see next.config.ts and
+                  illustrationImageProps): hotlinked originals went missing on the phone even when they
+                  loaded fine from a desktop. */}
+              {/* eslint-disable-next-line @next/next/no-img-element, jsx-a11y/alt-text */}
               <img
-                src={illustration.imageUrl}
-                referrerPolicy="no-referrer"
-                alt={`${illustration.title} — ${illustration.artist}`}
-                className="max-h-[32vh] w-full rounded-lg bg-[var(--clay-tint)] object-contain"
+                {...illustrationImageProps(illustration)}
+                className="h-auto max-h-[32vh] w-full rounded-lg bg-[var(--clay-tint)] object-contain"
               />
             </a>
           ))}
@@ -161,6 +160,28 @@ function IllustrationPanel({
       ))}
     </>
   );
+}
+
+// Museum originals run up to ~1300px; the column is at most max-w-2xl (672px) wide, so ask the
+// optimizer for that width at 2x. The width/height pair only sets the requested size; h-auto keeps
+// each image's real aspect ratio once it loads.
+//
+// The Art Institute of Chicago is the exception: its IIIF server blocks Vercel's servers (502 via
+// the optimizer) and also 403s any browser request carrying another site's Referer — but answers a
+// browser request with no Referer. So its images load directly with referrerPolicy="no-referrer".
+function illustrationImageProps(illustration: Illustration) {
+  const alt = `${illustration.title} — ${illustration.artist}`;
+  if (new URL(illustration.imageUrl).hostname === "www.artic.edu") {
+    return { src: illustration.imageUrl, alt, referrerPolicy: "no-referrer" as const };
+  }
+  return getImageProps({
+    src: illustration.imageUrl,
+    alt,
+    width: 1344,
+    height: 1344,
+    sizes: "(max-width: 672px) 100vw, 672px",
+    loading: "eager",
+  }).props;
 }
 
 // Live height of a rendered element (0 until it exists). Used to stack this page's pinned rows
