@@ -371,6 +371,32 @@ highlight sync) on an actual device before considering this closed.**
 - App icon: `src/lib/appIcon.tsx` `ICON_SVG` is the single source. The iOS
   `AppIcon.png` is rendered from it at 1024px with alpha stripped.
 
+## Offline downloads (added 2026-10-10)
+
+- Ask: "넷플릭스나 유튜브처럼 다운받기". The book page has a "Download for offline" panel. It
+  saves text and pictures for the whole book, plus narration for the next 3/5/10 chapters or all
+  of them, in KO, EN, or both. Settings > Downloads shows sizes and deletes per chapter, per book,
+  or audio only. There is an optional auto-delete of narration for finished chapters.
+- `src/lib/offline.ts` downloads into Cache Storage, and `public/sw.js` serves from it.
+  - Pages and JSON are network-first with a 5s fallback to the saved copy.
+  - Images are keyed by source URL, ignoring the optimizer width.
+  - `/api/speak` chunks are cache-first.
+  - Offline `POST /api/bookmarks` is queued (latest per book) and replayed when back online.
+  - The download manifest is in localStorage under `storyflow:offline`.
+- iOS: WKWebView runs service workers only for App-Bound Domains. `WKAppBoundDomains` and
+  `limitsNavigationsToAppBoundDomains` were added in build 0.1 (3). This was confirmed in the
+  Simulator: the SW registered and created its caches.
+- Verified with headless Chrome against a local production build, with the server stopped for the
+  offline part. That covered download, opening saved chapters, next-chapter links, playing saved
+  narration, the notice on unsaved chapters, and deletes. Narration measured about 1MB per
+  art-tour chapter.
+- Pictures: the 55 Wikimedia and Art Institute of Chicago images are now in
+  `public/illustrations`.
+  - Wikimedia answered bursts with 429, which left pictures blank and broke downloads.
+  - AIC 403s any foreign Referer and blocks Vercel's servers.
+  - The Met is still hotlinked through the image optimizer.
+  - DB rows were repointed and the `data/*.json` files updated.
+
 ## Status
 
 - 2026-07-24: Idea scoped, first book picked (삼국지). Repo created at
