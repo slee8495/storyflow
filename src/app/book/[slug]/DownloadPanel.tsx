@@ -7,7 +7,8 @@ import { useUiLanguage } from "../../UiLanguageProvider";
 
 const CONTENT_LANG_KEY = "storyflow:lang"; // the chapter page's story-language toggle
 const AUDIO_COUNTS = [0, 3, 5, 10] as const;
-type AudioCount = (typeof AUDIO_COUNTS)[number] | "all";
+// "rest": from the chapter being read to the end of the book; "all": every chapter.
+type AudioCount = (typeof AUDIO_COUNTS)[number] | "rest" | "all";
 
 export function DownloadPanel({
   slug,
@@ -47,7 +48,8 @@ export function DownloadPanel({
   function start() {
     const langs: Lang[] = audioLang === "both" ? ["ko", "en"] : [audioLang];
     const fromStart = chapterNumbers.filter((n) => n >= startChapter);
-    const audioWanted = audioCount === "all" ? chapterNumbers : fromStart.slice(0, audioCount);
+    const audioWanted =
+      audioCount === "all" ? chapterNumbers : audioCount === "rest" ? fromStart : fromStart.slice(0, audioCount);
     // Skip what's already saved, so pressing Download again only fetches what's missing.
     const audioChapters = audioWanted.filter((n) => langs.some((l) => !saved?.chapters[n]?.audio.includes(l)));
     const textChapters = (wholeText ? chapterNumbers : []).filter((n) => !saved?.chapters[n]?.text);
@@ -88,14 +90,16 @@ export function DownloadPanel({
                   {n === 0 ? t("offline.audioNone") : `${t("offline.audioNext")} ${n}`}
                 </button>
               ))}
+              <button onClick={() => setAudioCount("rest")} className={pill(audioCount === "rest")}>
+                {t("offline.audioRest")}
+              </button>
               <button onClick={() => setAudioCount("all")} className={pill(audioCount === "all")}>
                 {t("offline.audioAll")}
               </button>
             </div>
             {audioCount !== 0 && audioCount !== "all" && (
               <span className="text-xs text-[var(--ink-soft)]">
-                {startChapter}
-                {t("offline.audioFrom")}
+                {t("offline.audioFrom").replace("{n}", String(startChapter))}
               </span>
             )}
           </div>
