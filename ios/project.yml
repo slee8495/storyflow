@@ -12,7 +12,7 @@ settings:
     CODE_SIGN_STYLE: Automatic
     MARKETING_VERSION: "0.1"
     # 올릴 때마다 하나씩 올린다. 안 올리면 App Store Connect 가 거절한다.
-    CURRENT_PROJECT_VERSION: "2"
+    CURRENT_PROJECT_VERSION: "3"
     SWIFT_VERSION: "5.0"
 
 targets:
@@ -28,6 +28,9 @@ targets:
       path: Storyflow/Info.plist
       properties:
         UIBackgroundModes: [audio]
+        # 오프라인 저장(웹앱의 service worker, public/sw.js)은 WKWebView 에서 App-Bound Domain 으로
+        # 선언한 주소에서만 켜진다. StoryflowWebView 의 limitsNavigationsToAppBoundDomains 와 짝.
+        WKAppBoundDomains: [storyflow-pied.vercel.app]
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.slstudio.storyflow

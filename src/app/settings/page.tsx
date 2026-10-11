@@ -4,6 +4,7 @@ import { FONT_SCALES } from "@/lib/fontScale";
 import { useFontScale } from "../FontScaleProvider";
 import { ReaderGate, useReader } from "../ReaderProvider";
 import { useUiLanguage } from "../UiLanguageProvider";
+import { DownloadsSection } from "./DownloadsSection";
 
 export default function SettingsPage() {
   const { scale, setScale } = useFontScale();
@@ -79,6 +80,8 @@ export default function SettingsPage() {
         </div>
         <p className="text-sm text-[var(--ink-soft)]">{t("settings.fontSizeHint")}</p>
       </section>
+
+      <DownloadsSection readerId={reader.id} />
     </div>
   );
 }

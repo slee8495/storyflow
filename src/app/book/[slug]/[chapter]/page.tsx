@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import { getImageProps } from "next/image";
 import { splitIntoChunks } from "@/lib/speak";
+import { pruneReadAudio } from "@/lib/offline";
 import { ReaderGate, useReader } from "../../../ReaderProvider";
 import { ChevronIcon } from "../../../ChevronIcon";
 import { usePlayback } from "../../../PlaybackProvider";
@@ -135,9 +136,7 @@ function IllustrationPanel({
         <div className={`grid gap-2 ${illustrations.length > 1 ? "grid-cols-2" : "grid-cols-1"}`}>
           {illustrations.map((illustration) => (
             <a key={illustration.id} href={illustration.sourceUrl} target="_blank" rel="noopener noreferrer">
-              {/* Served through Vercel's image optimizer where the museum allows it (see next.config.ts and
-                  illustrationImageProps): hotlinked originals went missing on the phone even when they
-                  loaded fine from a desktop. */}
+              {/* Through Vercel's image optimizer (see illustrationImageProps and next.config.ts). */}
               {/* eslint-disable-next-line @next/next/no-img-element, jsx-a11y/alt-text */}
               <img
                 {...illustrationImageProps(illustration)}
@@ -162,21 +161,15 @@ function IllustrationPanel({
   );
 }
 
-// Museum originals run up to ~1300px; the column is at most max-w-2xl (672px) wide, so ask the
-// optimizer for that width at 2x. The width/height pair only sets the requested size; h-auto keeps
-// each image's real aspect ratio once it loads.
-//
-// The Art Institute of Chicago is the exception: its IIIF server blocks Vercel's servers (502 via
-// the optimizer) and also 403s any browser request carrying another site's Referer — but answers a
-// browser request with no Referer. So its images load directly with referrerPolicy="no-referrer".
+// Illustrations are either served from this app (public/illustrations — the Wikimedia and Art
+// Institute of Chicago pictures, whose servers rate-limit or block hotlinking) or hotlinked from
+// the Met. Both go through the image optimizer: the column is at most max-w-2xl (672px) wide, so
+// it's asked for that width at 2x. The width/height pair only sets the requested size; h-auto
+// keeps each image's real aspect ratio once it loads.
 function illustrationImageProps(illustration: Illustration) {
-  const alt = `${illustration.title} — ${illustration.artist}`;
-  if (new URL(illustration.imageUrl).hostname === "www.artic.edu") {
-    return { src: illustration.imageUrl, alt, referrerPolicy: "no-referrer" as const };
-  }
   return getImageProps({
     src: illustration.imageUrl,
-    alt,
+    alt: `${illustration.title} — ${illustration.artist}`,
     width: 1344,
     height: 1344,
     sizes: "(max-width: 672px) 100vw, 672px",
@@ -347,6 +340,12 @@ export default function ChapterPage() {
       // best-effort — a failed bookmark save shouldn't block reading
     });
   }, [reader, data, chapterNumber]);
+
+  // Optional cleanup from Settings → Downloads: narration of chapters before this one is done with.
+  useEffect(() => {
+    if (!reader || !data) return;
+    pruneReadAudio(slug, chapterNumber, reader.id).catch(() => {});
+  }, [reader, data, slug, chapterNumber]);
 
   const thisSourceId = sourceId(slug, chapterNumber);
   const isSpeakingThis = playingSourceId === thisSourceId;

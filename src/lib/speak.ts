@@ -89,6 +89,16 @@ function stripVerseMarkers(text: string): string {
   return text.replace(/\(\d+\)\s*/g, "");
 }
 
+function speechUrl(text: string): string {
+  return `/api/speak?text=${encodeURIComponent(text)}`;
+}
+
+// Every /api/speak URL that speak() would request to read `text` from the start — used by offline
+// downloads (src/lib/offline.ts) so the saved audio matches playback's requests exactly.
+export function speechRequestUrls(text: string): string[] {
+  return splitIntoChunks(text).map((chunk) => speechUrl(stripVerseMarkers(chunk)));
+}
+
 function speakWithBrowserVoice(text: string, onStart?: () => void) {
   if (typeof window === "undefined" || !window.speechSynthesis) return;
   window.speechSynthesis.cancel();
@@ -151,7 +161,7 @@ function fetchAudioBuffer(text: string): Promise<ArrayBuffer | null> {
   const pending = inFlight.get(text);
   if (pending) return pending;
 
-  const promise = fetch(`/api/speak?text=${encodeURIComponent(text)}`)
+  const promise = fetch(speechUrl(text))
     .then((res) => {
       if (!res.ok) throw new Error("tts request failed");
       return res.arrayBuffer();

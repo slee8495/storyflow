@@ -6,6 +6,8 @@ import Link from "next/link";
 import { ReaderGate, useReader } from "../../ReaderProvider";
 import { ChevronIcon } from "../../ChevronIcon";
 import { useUiLanguage } from "../../UiLanguageProvider";
+import { useOffline } from "../../OfflineProvider";
+import { DownloadPanel } from "./DownloadPanel";
 import type { UiStringKey } from "@/lib/i18n";
 
 type ChapterListItem = {
@@ -170,6 +172,7 @@ export default function BookPage() {
   const { slug } = useParams<{ slug: string }>();
   const { reader, loading: readerLoading } = useReader();
   const { uiLang, t } = useUiLanguage();
+  const { manifest: offlineManifest } = useOffline();
   const [book, setBook] = useState<BookDetail | null>(null);
   const [chapters, setChapters] = useState<ChapterListItem[]>([]);
   const [bookmarkChapter, setBookmarkChapter] = useState<number | null>(null);
@@ -252,21 +255,38 @@ export default function BookPage() {
         {bookmarkChapter ? `${bookmarkChapter} ${t("book.resumeAt")}` : t("book.startFromOne")}
       </Link>
 
+      <DownloadPanel
+        slug={slug}
+        title={title}
+        chapterNumbers={chapters.map((c) => c.chapterNumber)}
+        startChapter={bookmarkChapter ?? 1}
+        readerId={reader.id}
+      />
+
       <div className="grid grid-cols-5 gap-1.5 sm:grid-cols-6">
-        {chapters.map((c) => (
-          <Link
-            key={c.id}
-            href={`/book/${slug}/${c.chapterNumber}`}
-            title={(uiLang === "en" ? c.titleEn : c.titleKo) ?? c.sourceTitle ?? undefined}
-            className={`rounded-lg border py-2 text-center text-xs font-medium ${
-              c.chapterNumber === bookmarkChapter
-                ? "border-[var(--clay)] bg-[var(--clay-tint)] text-[var(--ink)]"
-                : "border-[var(--line)] bg-[var(--paper-raised)] text-[var(--ink)] hover:border-[var(--clay)]"
-            }`}
-          >
-            {c.chapterNumber}
-          </Link>
-        ))}
+        {chapters.map((c) => {
+          const saved = offlineManifest.books[slug]?.chapters[c.chapterNumber];
+          return (
+            <Link
+              key={c.id}
+              href={`/book/${slug}/${c.chapterNumber}`}
+              title={(uiLang === "en" ? c.titleEn : c.titleKo) ?? c.sourceTitle ?? undefined}
+              className={`relative rounded-lg border py-2 text-center text-xs font-medium ${
+                c.chapterNumber === bookmarkChapter
+                  ? "border-[var(--clay)] bg-[var(--clay-tint)] text-[var(--ink)]"
+                  : "border-[var(--line)] bg-[var(--paper-raised)] text-[var(--ink)] hover:border-[var(--clay)]"
+              }`}
+            >
+              {c.chapterNumber}
+              {/* Downloaded: a dot for text, a note when its narration is saved too. */}
+              {saved?.text && (
+                <span className="absolute top-0.5 right-1 text-[0.6rem] leading-none text-[var(--clay-deep)]">
+                  {saved.audio.length > 0 ? "♪" : "•"}
+                </span>
+              )}
+            </Link>
+          );
+        })}
       </div>
 
       <section className="flex flex-col gap-3 rounded-xl border border-[var(--line)] bg-[var(--paper-raised)] p-4 shadow-sm">

@@ -15,6 +15,9 @@ struct StoryflowWebView: UIViewRepresentable {
         let config = WKWebViewConfiguration()
         config.allowsInlineMediaPlayback = true
         config.mediaTypesRequiringUserActionForPlayback = []
+        // 오프라인 저장용. 이게 켜져 있어야 웹뷰가 service worker 를 돌린다 (Info.plist 의
+        // WKAppBoundDomains 참고). 앱 밖 주소는 어차피 사파리로 넘기므로 막혀도 상관없다.
+        config.limitsNavigationsToAppBoundDomains = true
         // 낭독은 웹뷰 대신 앱이 직접 튼다 (NativeAudio.swift).
         config.userContentController.add(context.coordinator.audio, name: NativeAudio.handlerName)
 
@@ -35,7 +38,8 @@ struct StoryflowWebView: UIViewRepresentable {
 
         private func isInside(_ url: URL) -> Bool {
             guard let host = url.host() else { return true }
-            return host.hasSuffix("storyflow-pied.vercel.app") || host.hasSuffix("vercel.app")
+            // App-Bound Domain 하나뿐이다 — 다른 주소는 웹뷰가 열지 못하므로 사파리로 보낸다.
+            return host == Storyflow.homeURL.host()
         }
 
         /// 앱 바깥 주소(그림 밑 미술관 페이지 링크 등)는 사파리로 넘긴다 — 웹뷰 안에서 열면
