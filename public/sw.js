@@ -55,7 +55,7 @@ self.addEventListener("fetch", (event) => {
     const src = url.searchParams.get("url");
     if (src) event.respondWith(cachedOrNetwork(MEDIA, imageKey(src), request));
   } else if (url.pathname === "/api/speak") {
-    event.respondWith(cachedOrNetwork(AUDIO, request.url, request));
+    event.respondWith(cachedAudioOrNetwork(request));
   } else if (request.mode === "navigate") {
     event.respondWith(networkFirst(request, { alwaysStore: !CHAPTER_PAGE.test(url.pathname), offlinePage: true }));
   } else if (url.pathname.startsWith("/api/")) {
@@ -75,6 +75,23 @@ async function staticCacheFirst(request) {
 async function cachedOrNetwork(cacheName, key, request) {
   const hit = await (await caches.open(cacheName)).match(key, { ignoreVary: true });
   return hit ?? fetch(request);
+}
+
+// Narration URLs carry a voice version (&v=…, see speak.ts). Chunks downloaded before the voice
+// changed are saved under the old URL — offline, the old voice still beats silence.
+async function cachedAudioOrNetwork(request) {
+  const cache = await caches.open(AUDIO);
+  const hit = await cache.match(request.url, { ignoreVary: true });
+  if (hit) return hit;
+  try {
+    return await fetch(request);
+  } catch (err) {
+    // String surgery, not searchParams.delete(): re-serializing would turn the text's %20s into
+    // "+" and miss the stored key.
+    const older = await cache.match(request.url.replace(/&v=[^&]*$/, ""), { ignoreVary: true });
+    if (older) return older;
+    throw err;
+  }
 }
 
 function withTimeout(promise, ms) {

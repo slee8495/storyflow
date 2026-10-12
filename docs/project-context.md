@@ -427,3 +427,18 @@ The repo has no *required* next step right now — treat any further work as the
 new ask, not an inferred TODO. Don't add auth, billing, multi-user, or public-facing deployment
 features without first re-confirming the licensing/personal-use constraint above with the operator
 — that scope hasn't changed as of this writing.
+
+## Narration voice: Gemini TTS "Aoede" (2026-10-12)
+
+- `openai/tts-1` ("nova") read quoted dialogue in the same flat cadence as narration. Switched to
+  `google/gemini-3.8-flash-tts`, voice Aoede, with a performance prompt (`SPEECH_INSTRUCTIONS` in
+  `/api/speak`) — picked by ear from side-by-side samples (Gemini Kore/Aoede, Microsoft MAI,
+  Fish Audio) on Chatterley ch.17 dialogue, in both Korean and English.
+- Gemini only returns 16-bit WAV (~3.7x the MP3 size), so the route re-encodes to 64 kbps mono MP3
+  (`src/lib/ai/wavToMp3.ts`, `@breezystack/lamejs` — its CommonJS build exports nothing, so it
+  only works through the ESM import Next.js uses; `tsx` scripts can't load it).
+- Blob keys moved to `tts/gemini-aoede/…`; old `tts/nova/…` files are simply unused. Every chunk is
+  regenerated on first play (~5-10s per chunk, chunks fetched in parallel).
+- Speech URLs carry `&v=aoede` (`VOICE_VERSION` in speak.ts) so the browser's year-long HTTP cache
+  can't replay the old voice. Narration downloaded before the switch stays under the old URL; the
+  service worker falls back to it offline. Re-download a chapter's audio to get the new voice.

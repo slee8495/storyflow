@@ -89,8 +89,14 @@ function stripVerseMarkers(text: string): string {
   return text.replace(/\(\d+\)\s*/g, "");
 }
 
+// /api/speak answers fresh audio with a year-long immutable Cache-Control, so the browser (and the
+// app's web view) would keep replaying the previous voice for any chunk it has already fetched.
+// Bump this whenever the voice changes; the server ignores it. Downloads saved under the old URL
+// still play offline (public/sw.js falls back to them).
+const VOICE_VERSION = "aoede";
+
 function speechUrl(text: string): string {
-  return `/api/speak?text=${encodeURIComponent(text)}`;
+  return `/api/speak?text=${encodeURIComponent(text)}&v=${VOICE_VERSION}`;
 }
 
 // Every /api/speak URL that speak() would request to read `text` from the start — used by offline
