@@ -455,3 +455,6 @@ features without first re-confirming the licensing/personal-use constraint above
   fifteen", and a few partners are teenagers) — so part 15 (Louisa's childhood) comes out short.
   Adult scenes, including Mr. Crofts and good-natured Dick, follow the source's frankness (parts 3
   and 22 were regenerated after the first run had toned those down).
+- Each changed Fanny Hill chapter opens with an adaptation note saying what the source has and
+  what the retelling changed (`src/lib/adaptationNotes.ts`, keyed by slug + chapter, rendered
+  above the story in the chapter page). Chapters 1–15, 17, 21 and 22 have one.

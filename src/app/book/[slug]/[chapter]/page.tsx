@@ -6,6 +6,7 @@ import Link from "next/link";
 import { getImageProps } from "next/image";
 import { splitIntoChunks } from "@/lib/speak";
 import { pruneReadAudio } from "@/lib/offline";
+import { adaptationNote } from "@/lib/adaptationNotes";
 import { ReaderGate, useReader } from "../../../ReaderProvider";
 import { ChevronIcon } from "../../../ChevronIcon";
 import { usePlayback } from "../../../PlaybackProvider";
@@ -531,6 +532,11 @@ export default function ChapterPage() {
               </div>
             )}
             <IllustrationPanel illustrations={data.illustrations} lang={lang} stickyTop={headerHeight + toolbarHeight} />
+            {adaptationNote(slug, chapterNumber, lang) && (
+              <p className="mb-3 rounded-lg border border-[var(--line)] bg-[var(--clay-tint)] px-3 py-2 text-xs leading-relaxed text-[var(--ink-soft)]">
+                {adaptationNote(slug, chapterNumber, lang)}
+              </p>
+            )}
             {markerIndex !== null && !isSpeakingThis && (
               <p className="mb-2 text-xs text-[var(--ink-soft)]">
                 🔖 {openedFromMark ? t("marks.jumpHint") : t("chapter.resumeHint")}
