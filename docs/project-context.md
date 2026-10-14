@@ -442,3 +442,15 @@ features without first re-confirming the licensing/personal-use constraint above
 - Speech URLs carry `&v=aoede` (`VOICE_VERSION` in speak.ts) so the browser's year-long HTTP cache
   can't replay the old voice. Narration downloaded before the switch stays under the old URL; the
   service worker falls back to it offline. Re-download a chapter's audio to get the new voice.
+
+## Fanny Hill (2026-10-14)
+
+- Fourth book, slug `fanny-hill`: John Cleland's Memoirs of a Woman of Pleasure, Project Gutenberg
+  #25305 (Isidore Liseux edition "from the original text, London 1749" — unexpurgated). Source in
+  `data/fanny-hill-source.txt`, ingested by `npm run db:ingest-fanny-hill` (run `db:seed` first).
+- The novel is two letters, split like Chatterley at paragraph boundaries (≤3500 words) into 25
+  rows: Letter I parts 1–12, Letter II parts 1–13. Sonnet, as for Chatterley. No illustrations.
+- `BOOK_GUIDANCE["fanny-hill"]` asks for the erotic scenes in full, like Chatterley's, with two
+  fixed limits: everyone in a sexual scene is retold as an adult (Cleland's Fanny starts "not quite
+  fifteen", and a few partners are teenagers), and non-consensual encounters (Mr. Crofts' assault,
+  the "changeling" Dick) are told plainly, without erotic detail.

@@ -29,6 +29,16 @@ const SEED_BOOKS = [
       "In a cold country house after the war, Constance finds her body and her heart again through love with the gamekeeper.",
   },
   {
+    slug: "fanny-hill",
+    title: "패니 힐: 쾌락의 여인의 회고록",
+    titleEn: "Fanny Hill: Memoirs of a Woman of Pleasure",
+    author: "존 클리랜드 (John Cleland)",
+    totalChapters: null as number | null,
+    coverColor: "#8c3b4a",
+    description: "시골에서 런던으로 올라온 패니가 쾌락과 사랑을 거쳐 진정한 행복에 이르기까지, 스스로 써 내려간 고백.",
+    descriptionEn: "Fanny comes to London from the country and, through pleasure and love, writes her own way to happiness.",
+  },
+  {
     slug: "art-tour",
     title: "미술관 산책: 그림으로 읽는 서양미술사",
     titleEn: "A Walk Through the Museum: The Story of Western Art",
