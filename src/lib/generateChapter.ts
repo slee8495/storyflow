@@ -45,20 +45,20 @@ const BOOK_GUIDANCE: Record<string, string> = {
     "them (render his dialect as plain, warm, rough speech). Equally, do not add explicitness beyond the source. " +
     "Each row is one part of a longer original chapter: continue the story naturally without re-introducing the " +
     "characters or recapping earlier parts.",
-  // Same request as Chatterley, for the classic of English erotic fiction. Two lines the source
-  // crosses are held regardless: Cleland makes Fanny "not quite fifteen" when her story starts (and
-  // a few partners are teenagers), so everyone in a sexual scene is retold as an adult; and
-  // encounters without real consent are told plainly rather than as erotica.
+  // Same request as Chatterley, for the classic of English erotic fiction. One line the source
+  // crosses is held regardless: Cleland makes Fanny "not quite fifteen" when her story starts (and
+  // a few partners are teenagers), so everyone in a sexual scene is retold as an adult. Scenes
+  // between adults — including the ones without real consent — stay as frank as the source.
   "fanny-hill":
     "This is John Cleland's unexpurgated Memoirs of a Woman of Pleasure (Fanny Hill, 1749), read by an adult who chose it " +
     "for its frankness. The erotic scenes are the book — keep every one in full, as candid and sensual as Cleland wrote " +
     "it: what the characters do, what their bodies feel, and Fanny's own vivid, witty first-person voice. Do not fade to " +
     "black, skip, or soften these scenes into vague summary, and do not add explicitness beyond the source. Two firm " +
-    "limits: (1) every person in a sexual or sexualized scene is an adult — Fanny is eighteen when she arrives in London, " +
+    "rules: (1) every person in a sexual or sexualized scene is an adult — Fanny is eighteen when she arrives in London, " +
     "and any partner the source calls a boy or gives an age under eighteen is a young man of at least eighteen; never " +
-    "mention or imply a younger age, and never describe anyone in a sexual context in childlike terms. (2) Where an act " +
-    "lacks real consent — an assault or attempted assault, or a partner the source presents as unable to understand what " +
-    "is happening — tell what happens and how Fanny feels about it plainly and briefly, without erotic detail. Keep " +
+    "mention or imply a younger age, and never describe anyone in a sexual context in childlike terms. (2) Scenes between " +
+    "adults stay as frank as the source even where consent is missing or doubtful (Mr. Crofts, good-natured Dick): " +
+    "render them as candidly as Cleland does, keeping Fanny's own reactions to them. Keep " +
     "Fanny's letters-to-'Madam' framing where the source uses it. Each row is one part of a much longer letter: continue " +
     "the story naturally without re-introducing the characters or recapping earlier parts.",
 };

@@ -450,7 +450,8 @@ features without first re-confirming the licensing/personal-use constraint above
   `data/fanny-hill-source.txt`, ingested by `npm run db:ingest-fanny-hill` (run `db:seed` first).
 - The novel is two letters, split like Chatterley at paragraph boundaries (≤3500 words) into 25
   rows: Letter I parts 1–12, Letter II parts 1–13. Sonnet, as for Chatterley. No illustrations.
-- `BOOK_GUIDANCE["fanny-hill"]` asks for the erotic scenes in full, like Chatterley's, with two
-  fixed limits: everyone in a sexual scene is retold as an adult (Cleland's Fanny starts "not quite
-  fifteen", and a few partners are teenagers), and non-consensual encounters (Mr. Crofts' assault,
-  the "changeling" Dick) are told plainly, without erotic detail.
+- `BOOK_GUIDANCE["fanny-hill"]` asks for the erotic scenes in full, like Chatterley's, with one
+  fixed limit: everyone in a sexual scene is retold as an adult (Cleland's Fanny starts "not quite
+  fifteen", and a few partners are teenagers) — so part 15 (Louisa's childhood) comes out short.
+  Adult scenes, including Mr. Crofts and good-natured Dick, follow the source's frankness (parts 3
+  and 22 were regenerated after the first run had toned those down).
