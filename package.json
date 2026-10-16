@@ -13,6 +13,8 @@
     "db:ingest-samgukji": "tsx src/db/ingestSamgukji.ts",
     "db:ingest-chatterley": "tsx src/db/ingestChatterley.ts",
     "db:ingest-fanny-hill": "tsx src/db/ingestFannyHill.ts",
+    "db:ingest-gatsby": "tsx src/db/ingestGatsby.ts",
+    "db:ingest-anna-karenina": "tsx src/db/ingestAnnaKarenina.ts",
     "db:ingest-art-tour": "tsx src/db/ingestArtTour.ts",
     "db:pregenerate": "tsx src/db/pregenerate.ts"
   },

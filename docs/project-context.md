@@ -458,3 +458,15 @@ features without first re-confirming the licensing/personal-use constraint above
 - Each changed Fanny Hill chapter opens with an adaptation note saying what the source has and
   what the retelling changed (`src/lib/adaptationNotes.ts`, keyed by slug + chapter, rendered
   above the story in the chapter page). Chapters 1–15, 17, 21 and 22 have one.
+
+## The Great Gatsby and Anna Karenina (2026-10-15)
+
+- Picked by the user as "literary masterpieces" to read alongside Fanny Hill (Madame Bovary was
+  prepared first by mistake, then removed before generating — the user wanted candidates first).
+- `gatsby`: Gutenberg #64317 (US public domain since 2021). 9 chapters split at paragraph
+  boundaries into 19 rows. `anna-karenina`: Gutenberg #1399, Constance Garnett's translation. 239
+  short chapters grouped within each part into 134 rows of ≤3500 words.
+- Both on Sonnet, with BOOK_GUIDANCE that keeps each author's voice and fixes name spellings
+  (Russian names especially, which appear as full name, patronymic, surname and nickname).
+- `src/db/splitParts.ts` holds the shared splitter and chapter insert used by these two ingest
+  scripts; the older Chatterley and Fanny Hill scripts keep their own copies.

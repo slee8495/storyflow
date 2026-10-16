@@ -10,6 +10,9 @@ export const BOOK_MODELS: Record<string, string> = {
   chatterley: "anthropic/claude-sonnet-5.5",
   // Same reasons as Chatterley — an 18th-century English source Haiku would barely rewrite.
   "fanny-hill": "anthropic/claude-sonnet-5.5",
+  // Read for their prose as much as their plots — Haiku would flatten both.
+  gatsby: "anthropic/claude-sonnet-5.5",
+  "anna-karenina": "anthropic/claude-sonnet-5.5",
   // Written fresh from fact sheets, so factual care and prose quality matter more than cost —
   // chapters are short (~600-900 words), ~$3-4 for the whole ~60-chapter book.
   "art-tour": "anthropic/claude-sonnet-5.5",

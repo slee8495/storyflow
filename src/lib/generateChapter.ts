@@ -61,6 +61,27 @@ const BOOK_GUIDANCE: Record<string, string> = {
     "render them as candidly as Cleland does, keeping Fanny's own reactions to them. Keep " +
     "Fanny's letters-to-'Madam' framing where the source uses it. Each row is one part of a much longer letter: continue " +
     "the story naturally without re-introducing the characters or recapping earlier parts.",
+  // The two "literary masterpiece" picks. Both are prized for voice more than plot, so the easy
+  // rewrite is told to keep the voice. The generic name rule (한자음 기준) is for Chinese sources;
+  // these get fixed transliterations instead.
+  gatsby:
+    "This is F. Scott Fitzgerald's The Great Gatsby (1925), narrated in the first person by Nick Carraway. Keep Nick's " +
+    "voice — wry, observant, quietly romantic — and keep Fitzgerald's most famous images and lines recognizable even in " +
+    "simple words (the green light at the end of Daisy's dock, the valley of ashes and the eyes of Doctor T. J. " +
+    "Eckleburg, Gatsby's smile, 'her voice is full of money', the boats beating on against the current). Use these " +
+    "spellings every time — Korean: 개츠비, 닉 캐러웨이, 데이지 뷰캐넌, 톰 뷰캐넌, 조던 베이커, 머틀 윌슨, 조지 윌슨, " +
+    "울프심, 웨스트에그, 이스트에그. Each row is one part of a longer original chapter: continue the story naturally " +
+    "without re-introducing the characters or recapping earlier parts.",
+  "anna-karenina":
+    "This is Leo Tolstoy's Anna Karenina, from Constance Garnett's English translation of the Russian. Keep what makes it " +
+    "great: Tolstoy's deep, compassionate insight into each character's inner life, the small physical details that reveal " +
+    "feeling, and the two intertwined stories (Anna and Vronsky; Levin and Kitty). Russian names come in many forms " +
+    "(full name with patronymic, surname, nicknames); keep them easy to follow by mostly using one main name per person, " +
+    "and when a nickname or full name appears, make it clear who it is. Use these spellings every time — Korean: 안나, " +
+    "카레닌(알렉세이 알렉산드로비치), 브론스키, 스티바(오블론스키), 돌리, 키티, 레빈, 세료자, 니콜라이, 코즈니셰프; " +
+    "English: Anna, Karenin (Alexey Alexandrovitch), Vronsky, Stiva (Oblonsky), Dolly, Kitty, Levin, Seryozha, Nikolay, " +
+    "Koznishev. Each row covers one or more short original chapters (or one section of a long one): continue the story " +
+    "naturally without re-introducing the characters or recapping earlier parts.",
 };
 
 const DEFAULT_ROLE =
