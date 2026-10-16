@@ -8,6 +8,7 @@ import { ChevronIcon } from "../../ChevronIcon";
 import { useUiLanguage } from "../../UiLanguageProvider";
 import { useOffline } from "../../OfflineProvider";
 import { DownloadPanel } from "./DownloadPanel";
+import { useViewMode, ViewToggle } from "../../ViewToggle";
 import type { UiStringKey } from "@/lib/i18n";
 
 type ChapterListItem = {
@@ -180,6 +181,7 @@ export default function BookPage() {
   const [marks, setMarks] = useState<SavedMark[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const [view, setView] = useViewMode("storyflow:view:chapters");
 
   useEffect(() => {
     if (!reader) return;
@@ -263,7 +265,40 @@ export default function BookPage() {
         readerId={reader.id}
       />
 
-      <div className="grid grid-cols-5 gap-1.5 sm:grid-cols-6">
+      <div className="flex items-center justify-between">
+        <h2 className="text-sm font-semibold text-[var(--ink-soft)]">{t("nav.tableOfContents")}</h2>
+        <ViewToggle mode={view} onChange={setView} />
+      </div>
+
+      {view === "list" && (
+        <ul className="flex flex-col divide-y divide-[var(--line)] overflow-hidden rounded-xl border border-[var(--line)] bg-[var(--paper-raised)]">
+          {chapters.map((c) => {
+            const saved = offlineManifest.books[slug]?.chapters[c.chapterNumber];
+            const chapterTitle = (uiLang === "en" ? c.titleEn : c.titleKo) ?? c.sourceTitle;
+            const current = c.chapterNumber === bookmarkChapter;
+            return (
+              <li key={c.id}>
+                <Link
+                  href={`/book/${slug}/${c.chapterNumber}`}
+                  className={`flex items-center gap-3 px-3 py-2.5 text-sm ${
+                    current ? "bg-[var(--clay-tint)]" : "hover:bg-[var(--clay-tint)]"
+                  }`}
+                >
+                  <span className="w-7 shrink-0 text-right text-xs font-medium text-[var(--ink-soft)]">{c.chapterNumber}</span>
+                  <span className={`min-w-0 flex-1 truncate ${current ? "font-semibold" : ""} text-[var(--ink)]`}>
+                    {chapterTitle}
+                  </span>
+                  {saved?.text && (
+                    <span className="shrink-0 text-xs text-[var(--clay-deep)]">{saved.audio.length > 0 ? "♪" : "•"}</span>
+                  )}
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+
+      <div className={view === "list" ? "hidden" : "grid grid-cols-5 gap-1.5 sm:grid-cols-6"}>
         {chapters.map((c) => {
           const saved = offlineManifest.books[slug]?.chapters[c.chapterNumber];
           return (

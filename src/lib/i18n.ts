@@ -10,6 +10,9 @@ const STRINGS = {
   "nav.library": { ko: "서재로", en: "Library" },
   "nav.tableOfContents": { ko: "목차", en: "Contents" },
 
+  "view.grid": { ko: "큰 아이콘", en: "Large icons" },
+  "view.list": { ko: "목록", en: "List" },
+
   "gate.title": { ko: "이름을 입력하면 어디까지 읽었는지 기기와 상관없이 이어서 볼 수 있어요.", en: "Enter a name and your progress will follow you across devices." },
   "gate.placeholder": { ko: "이름", en: "Name" },
   "gate.submit": { ko: "시작하기", en: "Start" },

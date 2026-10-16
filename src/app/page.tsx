@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ReaderGate, useReader } from "./ReaderProvider";
 import { useUiLanguage } from "./UiLanguageProvider";
+import { useViewMode, ViewToggle } from "./ViewToggle";
 
 type LibraryBook = {
   id: number;
@@ -23,6 +24,7 @@ export default function LibraryPage() {
   const [books, setBooks] = useState<LibraryBook[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const [view, setView] = useViewMode("storyflow:view:library");
 
   useEffect(() => {
     if (!reader) return;
@@ -44,9 +46,12 @@ export default function LibraryPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <p className="text-sm text-[var(--ink-soft)]">
-        {t("library.greeting")} {reader.name}
-      </p>
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-sm text-[var(--ink-soft)]">
+          {t("library.greeting")} {reader.name}
+        </p>
+        {books.length > 0 && <ViewToggle mode={view} onChange={setView} />}
+      </div>
 
       {loading && <p className="text-sm text-[var(--ink-soft)]">{t("library.loading")}</p>}
       {error && <p className="text-sm text-red-600 dark:text-red-400">{t("library.error")}</p>}
@@ -54,19 +59,46 @@ export default function LibraryPage() {
         <p className="text-sm text-[var(--ink-soft)]">{t("library.empty")}</p>
       )}
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+      <div className={view === "list" ? "flex flex-col gap-2" : "grid grid-cols-2 gap-3 sm:grid-cols-3"}>
         {books.map((book) => {
           const title = uiLang === "en" ? (book.titleEn ?? book.title) : book.title;
           const progressPct =
             book.bookmarkChapter && book.totalChapters
               ? Math.min(100, Math.round((book.bookmarkChapter / book.totalChapters) * 100))
               : 0;
+          const href = book.bookmarkChapter ? `/book/${book.slug}/${book.bookmarkChapter}` : `/book/${book.slug}`;
+          if (view === "list") {
+            return (
+              <Link
+                key={book.id}
+                href={href}
+                className="flex items-center gap-3 rounded-xl border border-[var(--line)] bg-[var(--paper-raised)] p-2.5 shadow-sm transition-colors hover:border-[var(--clay)]"
+              >
+                <div
+                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-base font-semibold text-white"
+                  style={{ backgroundColor: book.coverColor ?? "var(--clay-deep)" }}
+                >
+                  {title.slice(0, 1)}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <h2 className="truncate text-sm font-semibold text-[var(--ink)]">{title}</h2>
+                  {book.author && <p className="truncate text-xs text-[var(--ink-soft)]">{book.author}</p>}
+                  {book.bookmarkChapter ? (
+                    <div className="mt-1 h-1 w-full overflow-hidden rounded-full bg-[var(--clay-tint)]">
+                      <div className="h-full rounded-full bg-[var(--clay)]" style={{ width: `${progressPct}%` }} />
+                    </div>
+                  ) : null}
+                </div>
+                <span className="shrink-0 text-xs text-[var(--ink-soft)]">
+                  {book.bookmarkChapter ? `${book.bookmarkChapter} ${t("library.resume")}` : t("library.start")}
+                </span>
+              </Link>
+            );
+          }
           return (
             <Link
               key={book.id}
-              href={
-                book.bookmarkChapter ? `/book/${book.slug}/${book.bookmarkChapter}` : `/book/${book.slug}`
-              }
+              href={href}
               className="flex flex-col gap-2 rounded-xl border border-[var(--line)] bg-[var(--paper-raised)] p-3 shadow-sm transition-colors hover:border-[var(--clay)]"
             >
               <div
