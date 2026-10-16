@@ -248,6 +248,21 @@ export default function BookPage() {
         {description && <p className="mt-2 text-sm leading-relaxed text-[var(--ink-soft)]">{description}</p>}
       </div>
 
+      {(() => {
+        const ready = chapters.filter((c) => c.generatedAt).length;
+        if (chapters.length === 0 || ready === chapters.length) return null;
+        return (
+          <div className="flex flex-col gap-1.5 rounded-lg bg-[var(--clay-tint)] px-3 py-2">
+            <p className="text-xs text-[var(--ink)]">
+              {t("translation.banner").replace("{ready}", String(ready)).replace("{total}", String(chapters.length))}
+            </p>
+            <div className="h-1.5 w-full overflow-hidden rounded-full bg-[var(--paper-raised)]">
+              <div className="h-full rounded-full bg-[var(--clay)]" style={{ width: `${(ready / chapters.length) * 100}%` }} />
+            </div>
+          </div>
+        );
+      })()}
+
       {progress?.started && <ProgressCard progress={progress} uiLang={uiLang} t={t} />}
 
       <Link
@@ -288,6 +303,7 @@ export default function BookPage() {
                   <span className={`min-w-0 flex-1 truncate ${current ? "font-semibold" : ""} text-[var(--ink)]`}>
                     {chapterTitle}
                   </span>
+                  {!c.generatedAt && <span className="shrink-0 text-xs text-[var(--ink-soft)]">{t("translation.pending")}</span>}
                   {saved?.text && (
                     <span className="shrink-0 text-xs text-[var(--clay-deep)]">{saved.audio.length > 0 ? "♪" : "•"}</span>
                   )}
@@ -310,7 +326,7 @@ export default function BookPage() {
                 c.chapterNumber === bookmarkChapter
                   ? "border-[var(--clay)] bg-[var(--clay-tint)] text-[var(--ink)]"
                   : "border-[var(--line)] bg-[var(--paper-raised)] text-[var(--ink)] hover:border-[var(--clay)]"
-              }`}
+              } ${c.generatedAt ? "" : "border-dashed opacity-50"}`}
             >
               {c.chapterNumber}
               {/* Downloaded: a dot for text, a note when its narration is saved too. */}

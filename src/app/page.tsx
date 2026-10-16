@@ -16,6 +16,7 @@ type LibraryBook = {
   coverColor: string | null;
   description: string | null;
   bookmarkChapter: number | null;
+  readyChapters: number;
 };
 
 export default function LibraryPage() {
@@ -66,6 +67,14 @@ export default function LibraryPage() {
             book.bookmarkChapter && book.totalChapters
               ? Math.min(100, Math.round((book.bookmarkChapter / book.totalChapters) * 100))
               : 0;
+          const translating = book.totalChapters !== null && book.readyChapters < book.totalChapters;
+          const translationBadge = translating ? (
+            <span className="text-[0.7rem] text-[var(--clay-deep)]">
+              {t("translation.progress")
+                .replace("{ready}", String(book.readyChapters))
+                .replace("{total}", String(book.totalChapters))}
+            </span>
+          ) : null;
           const href = book.bookmarkChapter ? `/book/${book.slug}/${book.bookmarkChapter}` : `/book/${book.slug}`;
           if (view === "list") {
             return (
@@ -83,6 +92,7 @@ export default function LibraryPage() {
                 <div className="min-w-0 flex-1">
                   <h2 className="truncate text-sm font-semibold text-[var(--ink)]">{title}</h2>
                   {book.author && <p className="truncate text-xs text-[var(--ink-soft)]">{book.author}</p>}
+                  {translationBadge}
                   {book.bookmarkChapter ? (
                     <div className="mt-1 h-1 w-full overflow-hidden rounded-full bg-[var(--clay-tint)]">
                       <div className="h-full rounded-full bg-[var(--clay)]" style={{ width: `${progressPct}%` }} />
@@ -110,6 +120,7 @@ export default function LibraryPage() {
               <div>
                 <h2 className="text-sm font-semibold text-[var(--ink)]">{title}</h2>
                 {book.author && <p className="text-xs text-[var(--ink-soft)]">{book.author}</p>}
+                {translationBadge}
               </div>
               {book.bookmarkChapter ? (
                 <div className="flex flex-col gap-1">

@@ -10,6 +10,12 @@ const STRINGS = {
   "nav.library": { ko: "서재로", en: "Library" },
   "nav.tableOfContents": { ko: "목차", en: "Contents" },
 
+  "translation.progress": { ko: "번역 중 {ready}/{total}", en: "Translating {ready}/{total}" },
+  "translation.banner": {
+    ko: "번역이 진행 중이에요: {total}챕터 중 {ready}챕터 준비됨. 나머지는 며칠에 걸쳐 차례로 준비돼요.",
+    en: "Translation in progress: {ready} of {total} chapters ready. The rest arrive in order over the next few days.",
+  },
+  "translation.pending": { ko: "준비 중", en: "Not ready" },
   "view.grid": { ko: "큰 아이콘", en: "Large icons" },
   "view.list": { ko: "목록", en: "List" },
 

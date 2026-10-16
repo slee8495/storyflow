@@ -8,7 +8,7 @@ import { BOOK_MODELS, MODEL } from "@/lib/ai/model";
 // Cheap truncation detector, same idea as Wordflow's looksComplete — a field that got cut off
 // mid-generation almost never ends on sentence-ending punctuation.
 const SENTENCE_END = /[.!?"'”’」）)]\s*$/;
-function looksComplete(text: string | null | undefined, minLength = 20): boolean {
+export function looksComplete(text: string | null | undefined, minLength = 20): boolean {
   if (!text) return false;
   const trimmed = text.trim();
   return trimmed.length >= minLength && SENTENCE_END.test(trimmed);
@@ -136,7 +136,7 @@ const LANGUAGES = {
       "verbatim — retell them in your own simpler words, even when the source itself is already in English.",
   },
 } as const;
-type Lang = keyof typeof LANGUAGES;
+export type Lang = keyof typeof LANGUAGES;
 
 const chapterSchema = z.object({
   title: z.string().describe("A short, engaging chapter title (not a literal translation of the original chapter heading)"),
@@ -154,23 +154,32 @@ export type GeneratedChapterContent = {
   storyEn: string;
 };
 
-async function generateInLanguage(chapter: Chapter, book: Book, lang: Lang) {
+// The exact instructions one language's retelling is generated from. Exported so chapters can
+// also be written outside this API path (by Claude Code on the operator's subscription — see
+// src/db/exportPending.ts) from the same prompt.
+export function generationPrompt(chapter: Chapter, book: Book, lang: Lang): { system: string; prompt: string } {
   const { name, style } = LANGUAGES[lang];
+  return {
+    system:
+      (BOOK_ROLES[book.slug] ?? DEFAULT_ROLE) +
+      ` Write both fields in ${name}. ${style} ` +
+      STYLE_GUIDANCE +
+      (BOOK_GUIDANCE[book.slug] ? ` ${BOOK_GUIDANCE[book.slug]}` : ""),
+    prompt: [
+      `Book: ${book.titleEn ?? book.title}${book.author ? ` by ${book.author}` : ""}`,
+      `Book chapter ${chapter.chapterNumber}${chapter.sourceTitle ? ` (original heading: ${chapter.sourceTitle})` : ""}`,
+      `Source text:\n${chapter.sourceText}`,
+    ].join("\n\n"),
+  };
+}
+
+async function generateInLanguage(chapter: Chapter, book: Book, lang: Lang) {
   const { object } = await withRetry(
     () =>
       generateObject({
         model: BOOK_MODELS[book.slug] ?? MODEL,
         schema: chapterSchema,
-        system:
-          (BOOK_ROLES[book.slug] ?? DEFAULT_ROLE) +
-          ` Write both fields in ${name}. ${style} ` +
-          STYLE_GUIDANCE +
-          (BOOK_GUIDANCE[book.slug] ? ` ${BOOK_GUIDANCE[book.slug]}` : ""),
-        prompt: [
-          `Book: ${book.titleEn ?? book.title}${book.author ? ` by ${book.author}` : ""}`,
-          `Book chapter ${chapter.chapterNumber}${chapter.sourceTitle ? ` (original heading: ${chapter.sourceTitle})` : ""}`,
-          `Source text:\n${chapter.sourceText}`,
-        ].join("\n\n"),
+        ...generationPrompt(chapter, book, lang),
       }),
     ({ object }) => looksComplete(object.title, 2) && looksComplete(object.story),
   );

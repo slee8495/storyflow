@@ -478,3 +478,19 @@ features without first re-confirming the licensing/personal-use constraint above
   `BOOK_GUIDANCE.samgukji`: spoken-storyteller Korean, short sentences, native words over 한자어,
   titles and terms glossed in parentheses on first use, quoted poems paraphrased. All 120 回
   regenerated (chapter 1 was the only one generated before).
+
+## Pregeneration on the operator's Claude subscription (2026-10-15)
+
+- At the operator's request, the remaining Anna Karenina and 삼국지 chapters are written by
+  Claude Code (Max subscription) instead of AI Gateway credits, a daily batch over several days.
+  `src/db/exportPending.ts <slug> <dir>` writes a `<n>.job.md` per ungenerated chapter with the
+  exact prompts (`generationPrompt` in generateChapter.ts, shared with the API path); subagents
+  write `<n>.out.md` (four `===TITLE_KO/STORY_KO/TITLE_EN/STORY_EN===` sections);
+  `src/db/importWritten.ts <slug> <dir>` validates (complete endings, English ≥50% of source
+  length for non-Chinese sources) and writes only still-ungenerated rows. Roughly 50k subagent
+  tokens per chapter.
+- The schedule is a session-only cron in that Claude Code session. On-demand generation via the
+  API still covers any chapter the reader opens before its batch arrives.
+- The library shows "번역 중 ready/total" and the book page a progress banner; untranslated chapters
+  are dimmed in the chapter grid and marked "준비 중" in the list view. `/api/books` returns
+  `readyChapters`.
