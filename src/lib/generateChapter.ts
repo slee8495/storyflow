@@ -72,6 +72,19 @@ const BOOK_GUIDANCE: Record<string, string> = {
     "spellings every time — Korean: 개츠비, 닉 캐러웨이, 데이지 뷰캐넌, 톰 뷰캐넌, 조던 베이커, 머틀 윌슨, 조지 윌슨, " +
     "울프심, 웨스트에그, 이스트에그. Each row is one part of a longer original chapter: continue the story naturally " +
     "without re-introducing the characters or recapping earlier parts.",
+  // The first retelling (Haiku, generic prompt) read like a literal translation, heavy with
+  // Sino-Korean literary vocabulary (보필, 농단, 조서) — the reader found it too hard. This pushes
+  // the Korean toward plain spoken storytelling.
+  samgukji:
+    "This is 삼국지연의 (Romance of the Three Kingdoms), from the classical Chinese. The reader found a literal-style " +
+    "Korean retelling too hard to read, so write the Korean the way a gifted storyteller would tell it aloud to a friend " +
+    "today: short sentences, and everyday native Korean words instead of formal Sino-Korean literary words (for example " +
+    "보필하다 → 곁에서 돕다, 농단하다 → 제멋대로 휘두르다, 즉위하다 → 황제 자리에 오르다, 조서 → 황제의 명령, 하명하다 → " +
+    "명령하다). The first time an official title, rank, institution or historical term appears in a chapter, explain it in " +
+    "a few plain words right there (e.g. '환관(궁궐에서 황제 곁을 지키는 내시)'). Make it clear who is speaking and why " +
+    "things matter, but keep every event, battle, scheme and character — do not summarize or skip. For the poems and " +
+    "verses the novel quotes, give their meaning in a sentence or two of plain language instead of translating them " +
+    "line by line. Names keep their standard Korean readings (유비, 관우, 장비, 조조, 제갈량, 손권…).",
   "anna-karenina":
     "This is Leo Tolstoy's Anna Karenina, from Constance Garnett's English translation of the Russian. Keep what makes it " +
     "great: Tolstoy's deep, compassionate insight into each character's inner life, the small physical details that reveal " +

@@ -2,11 +2,13 @@
 // docs/project-context.md for the cost estimate that justified this over a bigger model.
 export const MODEL = "anthropic/claude-haiku-4.5";
 
-// Per-book override, keyed by books.slug. Haiku retells a classical-Chinese source (삼국지) fine
-// since it has to rewrite every sentence anyway, but on an English source (Lady Chatterley) it
+// Per-book override, keyed by books.slug. On an English source (Lady Chatterley) Haiku
 // clung to the original wording — near-verbatim "easy English" and a stiff, literal Korean
 // translation. Sonnet actually rewrites; ~$6 for the whole 42-part novel vs ~$2 on Haiku.
 export const BOOK_MODELS: Record<string, string> = {
+  // Haiku's 삼국지 was accurate but read like a literal translation, full of Sino-Korean literary
+  // words the reader found too hard. Making it genuinely easy takes a real rewrite, not a gloss.
+  samgukji: "anthropic/claude-sonnet-5.5",
   chatterley: "anthropic/claude-sonnet-5.5",
   // Same reasons as Chatterley — an 18th-century English source Haiku would barely rewrite.
   "fanny-hill": "anthropic/claude-sonnet-5.5",

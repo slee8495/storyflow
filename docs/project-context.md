@@ -470,3 +470,11 @@ features without first re-confirming the licensing/personal-use constraint above
   (Russian names especially, which appear as full name, patronymic, surname and nickname).
 - `src/db/splitParts.ts` holds the shared splitter and chapter insert used by these two ingest
   scripts; the older Chatterley and Fanny Hill scripts keep their own copies.
+
+## 삼국지 retold in much easier Korean (2026-10-15)
+
+- The first retelling (Haiku, generic prompt) read like a literal translation full of Sino-Korean
+  literary words; the reader found it too hard. Switched 삼국지 to Sonnet with
+  `BOOK_GUIDANCE.samgukji`: spoken-storyteller Korean, short sentences, native words over 한자어,
+  titles and terms glossed in parentheses on first use, quoted poems paraphrased. All 120 回
+  regenerated (chapter 1 was the only one generated before).
