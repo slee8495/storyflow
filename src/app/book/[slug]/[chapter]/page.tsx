@@ -8,6 +8,7 @@ import { splitIntoChunks } from "@/lib/speak";
 import { pruneReadAudio } from "@/lib/offline";
 import { adaptationNote } from "@/lib/adaptationNotes";
 import { ReaderGate, useReader } from "../../../ReaderProvider";
+import { FinishControl } from "../../../FinishControl";
 import { ChevronIcon } from "../../../ChevronIcon";
 import { usePlayback } from "../../../PlaybackProvider";
 import { useUiLanguage } from "../../../UiLanguageProvider";
@@ -576,6 +577,8 @@ export default function ChapterPage() {
               {t("chapter.next")} <ChevronIcon direction="right" className="ml-1" />
             </Link>
           </div>
+
+          {!data.hasNext && <FinishControl slug={slug} readerId={reader.id} prominent />}
         </>
       )}
     </div>

@@ -173,6 +173,27 @@ export const progressSnapshots = pgTable(
   (t) => [unique().on(t.readerId, t.bookId, t.day)],
 );
 
+// Books a reader has finished, with the day they finished — moves the book to the library's
+// "다 읽음" (Finished) tab and feeds the reading-stats dashboard (books per month / year).
+// `finishedOn` is the reader's own local calendar date, sent by the client (unlike
+// progressSnapshots.day, which is server UTC), so a book finished late at night counts for the
+// day the reader saw. One row per reader+book: marking it unread again deletes the row.
+export const finishedBooks = pgTable(
+  "finished_books",
+  {
+    id: serial("id").primaryKey(),
+    readerId: integer("reader_id")
+      .notNull()
+      .references(() => readers.id, { onDelete: "cascade" }),
+    bookId: integer("book_id")
+      .notNull()
+      .references(() => books.id, { onDelete: "cascade" }),
+    finishedOn: date("finished_on").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [unique().on(t.readerId, t.bookId)],
+);
+
 export type Reader = typeof readers.$inferSelect;
 export type Book = typeof books.$inferSelect;
 export type Chapter = typeof chapters.$inferSelect;
@@ -180,3 +201,4 @@ export type Bookmark = typeof bookmarks.$inferSelect;
 export type ProgressSnapshot = typeof progressSnapshots.$inferSelect;
 export type ChapterIllustration = typeof chapterIllustrations.$inferSelect;
 export type SavedMark = typeof savedMarks.$inferSelect;
+export type FinishedBook = typeof finishedBooks.$inferSelect;

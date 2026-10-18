@@ -9,6 +9,7 @@ import { useUiLanguage } from "../../UiLanguageProvider";
 import { useOffline } from "../../OfflineProvider";
 import { DownloadPanel } from "./DownloadPanel";
 import { useViewMode, ViewToggle } from "../../ViewToggle";
+import { FinishControl } from "../../FinishControl";
 import type { UiStringKey } from "@/lib/i18n";
 
 type ChapterListItem = {
@@ -271,6 +272,8 @@ export default function BookPage() {
       >
         {bookmarkChapter ? `${bookmarkChapter} ${t("book.resumeAt")}` : t("book.startFromOne")}
       </Link>
+
+      <FinishControl slug={slug} readerId={reader.id} />
 
       <DownloadPanel
         slug={slug}

@@ -494,3 +494,14 @@ features without first re-confirming the licensing/personal-use constraint above
 - The library shows "번역 중 ready/total" and the book page a progress banner; untranslated chapters
   are dimmed in the chapter grid and marked "준비 중" in the list view. `/api/books` returns
   `readyChapters`.
+
+## Finished books and reading stats (2026-10-18)
+
+The library has three tabs: **읽는 중** (Reading), **다 읽음** (Finished) and **독서 기록** (Stats). The operator asked for this so finished books move out of the way, with the date each was finished, plus a dashboard of books per month and per year.
+
+- **Data:** `finished_books` holds one row per reader+book with `finished_on`, the reader's *local* calendar day sent by the client. Migration 0006.
+  - API: `/api/books/[slug]/finish` (GET / POST `{readerId, finishedOn}` / DELETE).
+  - `/api/books` now also returns `finishedOn` and `lastReadAt` (the bookmark's `updatedAt`).
+- **Marking a book finished:** `FinishControl` ("다 읽었어요"). It appears on the book page and at the end of the last chapter. Once a book is finished it shows the date, with "날짜 바꾸기" (date picker, for backfilling) and "아직 읽는 중으로 되돌리기" (deletes the row). Nothing is marked finished automatically.
+- **Ordering:** the Reading tab always puts the most recently opened book on top (operator ask), with unstarted books last. The Finished tab is newest-finished first.
+- **Stats:** `ReadingStats` is computed client-side from the library response. It shows this-month / this-year / all-time tiles, a 12-month bar chart for a selectable year with that year's finished books listed, and a per-year tally.
