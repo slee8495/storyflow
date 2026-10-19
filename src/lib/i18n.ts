@@ -21,7 +21,12 @@ const STRINGS = {
 
   "tabs.reading": { ko: "읽는 중", en: "Reading" },
   "tabs.finished": { ko: "다 읽음", en: "Finished" },
+  "tabs.archived": { ko: "보관함", en: "Archived" },
   "tabs.stats": { ko: "독서 기록", en: "Stats" },
+  "archive.mark": { ko: "나중에 읽기", en: "Read later" },
+  "archive.inArchive": { ko: "보관함에 있어요. 읽던 자리는 그대로 남아 있어요.", en: "In your archive. Your place is saved." },
+  "archive.restore": { ko: "다시 읽는 중으로 꺼내기", en: "Move back to Reading" },
+  "archive.empty": { ko: "보관한 책이 없어요. 읽다 쉬고 싶은 책은 책 페이지에서 \"나중에 읽기\"를 누르면 여기로 와요.", en: "Nothing archived. Tap \"Read later\" on a book's page to set it aside here." },
   "finish.mark": { ko: "다 읽었어요", en: "I finished this book" },
   "finish.done": { ko: "{date}에 다 읽었어요", en: "Finished on {date}" },
   "finish.changeDate": { ko: "날짜 바꾸기", en: "Change date" },

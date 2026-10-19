@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
-import { books, finishedBooks } from "@/db/schema";
+import { archivedBooks, books, finishedBooks } from "@/db/schema";
 
 // Whether the reader has finished this book, and on which day (see schema.ts finishedBooks).
 //   GET    ?readerId=                 → { finishedOn: "YYYY-MM-DD" | null }
-//   POST   { readerId, finishedOn }   → mark finished, or change the date
+//   POST   { readerId, finishedOn }   → mark finished, or change the date (takes it out of the
+//                                       Archived tab too, if it was set aside)
 //   DELETE ?readerId=                 → back to "reading"
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -41,7 +42,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ slu
   await db
     .insert(finishedBooks)
     .values({ readerId, bookId: book.id, finishedOn })
-    .onConflictDoUpdate({ target: [finishedBooks.readerId, finishedBooks.bookId], set: { finishedOn } });
+    .onConflictDoUpdate({
+      target: [finishedBooks.readerId, finishedBooks.bookId],
+      set: { finishedOn },
+    });
+  await db.delete(archivedBooks).where(and(eq(archivedBooks.readerId, readerId), eq(archivedBooks.bookId, book.id)));
   return NextResponse.json({ finishedOn });
 }
 
@@ -52,8 +57,6 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ s
   const book = await findBook(slug);
   if (!book) return NextResponse.json({ error: "book not found" }, { status: 404 });
 
-  await db
-    .delete(finishedBooks)
-    .where(and(eq(finishedBooks.readerId, readerId), eq(finishedBooks.bookId, book.id)));
+  await db.delete(finishedBooks).where(and(eq(finishedBooks.readerId, readerId), eq(finishedBooks.bookId, book.id)));
   return NextResponse.json({ finishedOn: null });
 }

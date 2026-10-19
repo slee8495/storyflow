@@ -50,6 +50,13 @@
       "when": 1792348603882,
       "tag": "0006_graceful_firebird",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1792442077289,
+      "tag": "0007_natural_wolfsbane",
+      "breakpoints": true
     }
   ]
 }

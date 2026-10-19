@@ -8,7 +8,7 @@ import { useViewMode, ViewToggle } from "./ViewToggle";
 import { formatDay } from "./FinishControl";
 import { ReadingStats } from "./ReadingStats";
 
-type LibraryTab = "reading" | "finished" | "stats";
+type LibraryTab = "reading" | "finished" | "archived" | "stats";
 const TAB_KEY = "storyflow:tab:library";
 
 type LibraryBook = {
@@ -24,6 +24,7 @@ type LibraryBook = {
   readyChapters: number;
   lastReadAt: string | null;
   finishedOn: string | null;
+  archivedAt: string | null;
 };
 
 export default function LibraryPage() {
@@ -38,8 +39,9 @@ export default function LibraryPage() {
   useEffect(() => {
     try {
       const stored = localStorage.getItem(TAB_KEY);
+      const tabs: LibraryTab[] = ["reading", "finished", "archived", "stats"];
       // eslint-disable-next-line react-hooks/set-state-in-effect
-      if (stored === "reading" || stored === "finished" || stored === "stats") setTabState(stored);
+      if (tabs.includes(stored as LibraryTab)) setTabState(stored as LibraryTab);
     } catch {}
   }, []);
   function setTab(next: LibraryTab) {
@@ -68,14 +70,15 @@ export default function LibraryPage() {
   if (!reader) return <ReaderGate />;
 
   // Reading tab: whatever was opened most recently on top, then books not started yet.
-  // Finished tab: most recently finished first.
+  // Finished tab: most recently finished first. Archived tab: set aside mid-way, newest first.
   const reading = books
-    .filter((b) => !b.finishedOn)
+    .filter((b) => !b.finishedOn && !b.archivedAt)
     .sort((a, b) => (b.lastReadAt ?? "").localeCompare(a.lastReadAt ?? ""));
-  const finished = books
-    .filter((b) => b.finishedOn)
-    .sort((a, b) => b.finishedOn!.localeCompare(a.finishedOn!));
-  const shown = tab === "finished" ? finished : reading;
+  const finished = books.filter((b) => b.finishedOn).sort((a, b) => b.finishedOn!.localeCompare(a.finishedOn!));
+  const archived = books
+    .filter((b) => !b.finishedOn && b.archivedAt)
+    .sort((a, b) => b.archivedAt!.localeCompare(a.archivedAt!));
+  const shown = tab === "finished" ? finished : tab === "archived" ? archived : reading;
   const tabButton = (value: LibraryTab, label: string, count?: number) => (
     <button
       onClick={() => setTab(value)}
@@ -97,6 +100,7 @@ export default function LibraryPage() {
       <div className="flex gap-1 rounded-full bg-[var(--clay-tint)] p-1">
         {tabButton("reading", t("tabs.reading"), reading.length)}
         {tabButton("finished", t("tabs.finished"), finished.length)}
+        {tabButton("archived", t("tabs.archived"), archived.length)}
         {tabButton("stats", t("tabs.stats"))}
       </div>
 
@@ -124,7 +128,9 @@ export default function LibraryPage() {
         <p className="text-sm text-[var(--ink-soft)]">{t("library.empty")}</p>
       )}
       {!loading && !error && books.length > 0 && tab !== "stats" && shown.length === 0 && (
-        <p className="text-sm text-[var(--ink-soft)]">{tab === "finished" ? t("finish.empty") : t("finish.readingEmpty")}</p>
+        <p className="text-sm text-[var(--ink-soft)]">
+          {tab === "finished" ? t("finish.empty") : tab === "archived" ? t("archive.empty") : t("finish.readingEmpty")}
+        </p>
       )}
 
       <div
@@ -146,11 +152,13 @@ export default function LibraryPage() {
                 .replace("{total}", String(book.totalChapters))}
             </span>
           ) : null;
-          const href = book.finishedOn
-            ? `/book/${book.slug}`
-            : book.bookmarkChapter
-              ? `/book/${book.slug}/${book.bookmarkChapter}`
-              : `/book/${book.slug}`;
+          // Finished/archived books open on the book page, where they can be moved back.
+          const href =
+            book.finishedOn || book.archivedAt
+              ? `/book/${book.slug}`
+              : book.bookmarkChapter
+                ? `/book/${book.slug}/${book.bookmarkChapter}`
+                : `/book/${book.slug}`;
           const finishedLabel = book.finishedOn ? (
             <span className="text-xs text-[var(--clay-deep)]">📗 {formatDay(book.finishedOn, uiLang)}</span>
           ) : null;
@@ -163,7 +171,9 @@ export default function LibraryPage() {
               >
                 <div
                   className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-base font-semibold text-white"
-                  style={{ backgroundColor: book.coverColor ?? "var(--clay-deep)" }}
+                  style={{
+                    backgroundColor: book.coverColor ?? "var(--clay-deep)",
+                  }}
                 >
                   {title.slice(0, 1)}
                 </div>
@@ -194,7 +204,9 @@ export default function LibraryPage() {
             >
               <div
                 className="flex h-24 w-full items-center justify-center rounded-lg text-2xl font-semibold text-white"
-                style={{ backgroundColor: book.coverColor ?? "var(--clay-deep)" }}
+                style={{
+                  backgroundColor: book.coverColor ?? "var(--clay-deep)",
+                }}
               >
                 {title.slice(0, 1)}
               </div>
@@ -203,21 +215,19 @@ export default function LibraryPage() {
                 {book.author && <p className="text-xs text-[var(--ink-soft)]">{book.author}</p>}
                 {translationBadge}
               </div>
-              {finishedLabel ?? (book.bookmarkChapter ? (
-                <div className="flex flex-col gap-1">
-                  <div className="h-1.5 w-full overflow-hidden rounded-full bg-[var(--clay-tint)]">
-                    <div
-                      className="h-full rounded-full bg-[var(--clay)]"
-                      style={{ width: `${progressPct}%` }}
-                    />
+              {finishedLabel ??
+                (book.bookmarkChapter ? (
+                  <div className="flex flex-col gap-1">
+                    <div className="h-1.5 w-full overflow-hidden rounded-full bg-[var(--clay-tint)]">
+                      <div className="h-full rounded-full bg-[var(--clay)]" style={{ width: `${progressPct}%` }} />
+                    </div>
+                    <span className="text-xs text-[var(--ink-soft)]">
+                      {book.bookmarkChapter} {t("library.resume")}
+                    </span>
                   </div>
-                  <span className="text-xs text-[var(--ink-soft)]">
-                    {book.bookmarkChapter} {t("library.resume")}
-                  </span>
-                </div>
-              ) : (
-                <span className="text-xs text-[var(--clay-deep)]">{t("library.start")}</span>
-              ))}
+                ) : (
+                  <span className="text-xs text-[var(--clay-deep)]">{t("library.start")}</span>
+                ))}
             </Link>
           );
         })}

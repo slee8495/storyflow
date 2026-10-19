@@ -194,6 +194,24 @@ export const finishedBooks = pgTable(
   (t) => [unique().on(t.readerId, t.bookId)],
 );
 
+// Books the reader set aside mid-way ("보관함" / Archived tab) to come back to later. Only hides
+// the book from the Reading tab — its bookmark (and so "이어읽기") is untouched. One row per
+// reader+book; taking it back out, or marking it finished, deletes the row.
+export const archivedBooks = pgTable(
+  "archived_books",
+  {
+    id: serial("id").primaryKey(),
+    readerId: integer("reader_id")
+      .notNull()
+      .references(() => readers.id, { onDelete: "cascade" }),
+    bookId: integer("book_id")
+      .notNull()
+      .references(() => books.id, { onDelete: "cascade" }),
+    archivedAt: timestamp("archived_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [unique().on(t.readerId, t.bookId)],
+);
+
 export type Reader = typeof readers.$inferSelect;
 export type Book = typeof books.$inferSelect;
 export type Chapter = typeof chapters.$inferSelect;
@@ -202,3 +220,4 @@ export type ProgressSnapshot = typeof progressSnapshots.$inferSelect;
 export type ChapterIllustration = typeof chapterIllustrations.$inferSelect;
 export type SavedMark = typeof savedMarks.$inferSelect;
 export type FinishedBook = typeof finishedBooks.$inferSelect;
+export type ArchivedBook = typeof archivedBooks.$inferSelect;

@@ -273,7 +273,7 @@ export default function BookPage() {
         {bookmarkChapter ? `${bookmarkChapter} ${t("book.resumeAt")}` : t("book.startFromOne")}
       </Link>
 
-      <FinishControl slug={slug} readerId={reader.id} />
+      <FinishControl slug={slug} readerId={reader.id} allowArchive />
 
       <DownloadPanel
         slug={slug}
