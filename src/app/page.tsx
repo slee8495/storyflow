@@ -18,6 +18,7 @@ type LibraryBook = {
   titleEn: string | null;
   author: string | null;
   totalChapters: number | null;
+  progressPct: number | null;
   coverColor: string | null;
   description: string | null;
   bookmarkChapter: number | null;
@@ -140,10 +141,7 @@ export default function LibraryPage() {
       >
         {shown.map((book) => {
           const title = uiLang === "en" ? (book.titleEn ?? book.title) : book.title;
-          const progressPct =
-            book.bookmarkChapter && book.totalChapters
-              ? Math.min(100, Math.round((book.bookmarkChapter / book.totalChapters) * 100))
-              : 0;
+          const progressPct = book.progressPct ?? 0;
           const translating = book.totalChapters !== null && book.readyChapters < book.totalChapters;
           const translationBadge = translating ? (
             <span className="text-[0.7rem] text-[var(--clay-deep)]">
@@ -183,8 +181,11 @@ export default function LibraryPage() {
                   {translationBadge}
                   {finishedLabel}
                   {book.bookmarkChapter && !book.finishedOn ? (
-                    <div className="mt-1 h-1 w-full overflow-hidden rounded-full bg-[var(--clay-tint)]">
-                      <div className="h-full rounded-full bg-[var(--clay)]" style={{ width: `${progressPct}%` }} />
+                    <div className="mt-1 flex items-center gap-2">
+                      <div className="h-1 flex-1 overflow-hidden rounded-full bg-[var(--clay-tint)]">
+                        <div className="h-full rounded-full bg-[var(--clay)]" style={{ width: `${progressPct}%` }} />
+                      </div>
+                      <span className="shrink-0 text-[0.7rem] tabular-nums text-[var(--ink-soft)]">{progressPct}%</span>
                     </div>
                   ) : null}
                 </div>
@@ -218,8 +219,13 @@ export default function LibraryPage() {
               {finishedLabel ??
                 (book.bookmarkChapter ? (
                   <div className="flex flex-col gap-1">
-                    <div className="h-1.5 w-full overflow-hidden rounded-full bg-[var(--clay-tint)]">
-                      <div className="h-full rounded-full bg-[var(--clay)]" style={{ width: `${progressPct}%` }} />
+                    <div className="flex items-center gap-2">
+                      <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-[var(--clay-tint)]">
+                        <div className="h-full rounded-full bg-[var(--clay)]" style={{ width: `${progressPct}%` }} />
+                      </div>
+                      <span className="shrink-0 text-xs font-medium tabular-nums text-[var(--ink)]">
+                        {progressPct}%
+                      </span>
                     </div>
                     <span className="text-xs text-[var(--ink-soft)]">
                       {book.bookmarkChapter} {t("library.resume")}

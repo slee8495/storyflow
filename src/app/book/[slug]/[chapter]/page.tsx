@@ -371,6 +371,31 @@ export default function ChapterPage() {
     return text ? splitIntoChunks(text) : [];
   }, [data, lang]);
 
+  // How far through this chapter the reading line is (0–1), kept live while scrolling so the
+  // toolbar can show the position in the whole book.
+  const [withinChapter, setWithinChapter] = useState(0);
+  useEffect(() => {
+    let frame = 0;
+    const update = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => setWithinChapter(readingProgress(chunks) ?? 0));
+    };
+    update();
+    window.addEventListener("scroll", update, { passive: true });
+    window.addEventListener("resize", update);
+    return () => {
+      cancelAnimationFrame(frame);
+      window.removeEventListener("scroll", update);
+      window.removeEventListener("resize", update);
+    };
+  }, [chunks]);
+  const totalChapters = data?.book.totalChapters ?? null;
+  // Floored, so 100% only shows once the last line is reached. Same measure as the library's
+  // progressPct (src/lib/progress.ts computeOverallProgressPct).
+  const bookPct = totalChapters
+    ? Math.min(100, Math.floor(((chapterNumber - 1 + withinChapter) / totalChapters) * 100))
+    : null;
+
   const savedIndices = useMemo(
     () => new Set(marks.filter((m) => m.lang === lang && m.chunkIndex !== null).map((m) => m.chunkIndex!)),
     [marks, lang],
@@ -453,6 +478,17 @@ export default function ChapterPage() {
         >
           <ChevronIcon direction="left" /> {t("nav.tableOfContents")}
         </Link>
+        {totalChapters && bookPct !== null && (
+          <span className="text-xs tabular-nums text-[var(--ink-soft)]">
+            {t("chapter.position").replace("{n}", String(chapterNumber)).replace("{total}", String(totalChapters))} ·{" "}
+            <span className="font-medium text-[var(--ink)]">{bookPct}%</span>
+          </span>
+        )}
+        {bookPct !== null && (
+          <div className="absolute inset-x-0 bottom-0 h-0.5 bg-[var(--clay-tint)]">
+            <div className="h-full bg-[var(--clay)]" style={{ width: `${bookPct}%` }} />
+          </div>
+        )}
         <div className="flex gap-1 rounded-full bg-[var(--clay-tint)] p-0.5 text-xs">
           <button
             onClick={() => setLanguage("ko")}

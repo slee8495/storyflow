@@ -73,6 +73,7 @@ const STRINGS = {
   "chapter.listen": { ko: "읽어주기", en: "Listen" },
   "chapter.prev": { ko: "이전 화", en: "Previous" },
   "chapter.next": { ko: "다음 화", en: "Next" },
+  "chapter.position": { ko: "{n}/{total}화", en: "Ch. {n}/{total}" },
   "chapter.korean": { ko: "한글", en: "Korean" },
   "chapter.english": { ko: "English", en: "English" },
   "chapter.resumeHint": { ko: "지난번에 여기까지 들었어요 — 표시된 문장부터 이어가요.", en: "You left off here — resuming from the marked sentence." },

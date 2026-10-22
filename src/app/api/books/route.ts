@@ -2,13 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { eq, and, count, isNotNull } from "drizzle-orm";
 import { db } from "@/db";
 import { archivedBooks, books, bookmarks, chapters, finishedBooks } from "@/db/schema";
+import { computeOverallProgressPct } from "@/lib/progress";
 
 // Library list — every book, with the requesting reader's current bookmark chapter (if any) so
 // the UI can offer "이어읽기" (resume) straight from the grid. `readyChapters` counts chapters
 // whose retelling exists, so a book still being translated can show how far along it is.
 // `lastReadAt` (the bookmark's last touch) keeps the book being read on top; `finishedOn` sorts a
 // book into the Finished tab and feeds the reading-stats dashboard; `archivedAt` puts a book the
-// reader set aside into the Archived tab.
+// reader set aside into the Archived tab. `progressPct` is the whole-book share read, counting the
+// sentence position inside the bookmarked chapter (same measure as the chapter page's toolbar).
 export async function GET(req: NextRequest) {
   const readerId = Number(req.nextUrl.searchParams.get("readerId") ?? "");
   const allBooks = await db.select().from(books);
@@ -27,6 +29,7 @@ export async function GET(req: NextRequest) {
           ...book,
           readyChapters,
           bookmarkChapter: null as number | null,
+          progressPct: null as number | null,
           lastReadAt: null,
           finishedOn: null,
           archivedAt: null,
@@ -51,6 +54,16 @@ export async function GET(req: NextRequest) {
         ...book,
         readyChapters,
         bookmarkChapter: mark?.chapterNumber ?? null,
+        progressPct: mark
+          ? Math.floor(
+              await computeOverallProgressPct(
+                book,
+                mark.chapterNumber,
+                mark.chunkIndex,
+                mark.lang as "ko" | "en" | null,
+              ),
+            )
+          : null,
         lastReadAt: mark?.updatedAt ?? null,
         finishedOn: finished?.finishedOn ?? null,
         archivedAt: archived?.archivedAt ?? null,
