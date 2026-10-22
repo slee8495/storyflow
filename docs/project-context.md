@@ -105,7 +105,7 @@ implementation this is modeled on. Key pattern to reuse:
   Google login, no billing, no admin panel, no multi-profile complexity — confirmed against the
   legal-scope note above (personal single-user app).
 - **Safari web app (PWA).** Installable to iOS home screen — `manifest.ts`, generative icon
-  (`src/lib/appIcon.tsx`, an open-book mark in the indigo palette), `apple-web-app` meta in
+  (`src/lib/appIcon.tsx`, an indigo book with gold sound waves on paper), `apple-web-app` meta in
   `layout.tsx`, `standalone` display mode. Same pattern as Wordflow's PWA setup.
 - **TTS/audio: ported near-verbatim from Wordflow** (`src/lib/speak.ts`,
   `src/app/PlaybackProvider.tsx`, `src/app/NowPlayingBar.tsx`) — chunked sentence-level playback,
