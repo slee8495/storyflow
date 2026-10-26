@@ -489,7 +489,13 @@ features without first re-confirming the licensing/personal-use constraint above
   `src/db/importWritten.ts <slug> <dir>` validates (complete endings, English ≥50% of source
   length for non-Chinese sources) and writes only still-ungenerated rows. Roughly 50k subagent
   tokens per chapter.
-- The schedule is a session-only cron in that Claude Code session. On-demand generation via the
+- The schedule (since 2026-10-25) is a launchd job on the operator's Mac,
+  `~/Library/LaunchAgents/com.slstudio.storyflow-nightly.plist`, 02:47 daily, running
+  `scripts/nightly/nightly.sh`: it exports pending jobs, runs `claude -p` with
+  `scripts/nightly/prompt.md` (8 chapters, two sonnet subagents, then import), logs to
+  `~/Library/Caches/storyflow-nightly/nightly.log`. Needs only the Mac awake, no open Claude
+  session. When nothing is pending it runs `done.md` once (notify, docs line, commit) and unloads
+  itself. Before that it was a session-only cron. On-demand generation via the
   API still covers any chapter the reader opens before its batch arrives.
 - The library shows "번역 중 ready/total" and the book page a progress banner; untranslated chapters
   are dimmed in the chapter grid and marked "준비 중" in the list view. `/api/books` returns
