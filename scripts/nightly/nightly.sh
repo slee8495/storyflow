@@ -5,6 +5,9 @@
 # left runs done.md once and unloads itself.
 cd "$(dirname "$0")/../.." || exit 1
 export PATH="/Users/stanlee/.npm-global/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
+# Headless `claude -p` stops background subagents 10 min after its last turn; translating 4 chapters
+# takes longer, so wait for them (the 3-hour perl alarm below is the real ceiling).
+export CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS=0
 WORK="$HOME/Library/Caches/storyflow-nightly"
 LOG="$WORK/nightly.log"
 LOCK="$WORK/.lock"
@@ -29,6 +32,8 @@ for slug in anna-karenina samgukji; do
 done
 log "pending:$PENDING"
 
+# 컨트롤 타워 예산 게이트(10-26 사용자: "Max 주간 한도·맥 부하를 지휘") — 넘기라고 하면 이번 차례는 모델을 부르지 않는다. 타워가 없거나 고장이면 그냥 진행. 상태: ~/.slstudio/tower/STATUS.md
+TOWER_GATE="$HOME/.slstudio/tower/gate"; if [ -x "$TOWER_GATE" ] && ! "$TOWER_GATE" storyflow; then log "control tower: skipped this run"; exit 0; fi
 if [ "$TOTAL" -eq 0 ]; then
   PROMPT=$(sed "s/{{TODAY}}/$(date +%Y-%m-%d)/" scripts/nightly/done.md)
   claude -p "$PROMPT" --model opus --permission-mode acceptEdits \
