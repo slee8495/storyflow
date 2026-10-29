@@ -19,6 +19,7 @@ type LibraryBook = {
   author: string | null;
   totalChapters: number | null;
   progressPct: number | null;
+  listenSecondsLeft: number | null;
   coverColor: string | null;
   description: string | null;
   bookmarkChapter: number | null;
@@ -66,6 +67,14 @@ export default function LibraryPage() {
       .catch(() => setError(true))
       .finally(() => setLoading(false));
   }, [reader]);
+
+  function formatListenTime(seconds: number) {
+    const minutes = Math.max(1, Math.round(seconds / 60));
+    const [h, m] = [Math.floor(minutes / 60), minutes % 60];
+    return h
+      ? t("listen.hm").replace("{h}", String(h)).replace("{m}", String(m))
+      : t("listen.m").replace("{m}", String(m));
+  }
 
   if (readerLoading) return null;
   if (!reader) return <ReaderGate />;
@@ -142,6 +151,8 @@ export default function LibraryPage() {
         {shown.map((book) => {
           const title = uiLang === "en" ? (book.titleEn ?? book.title) : book.title;
           const progressPct = book.progressPct ?? 0;
+          const listenTime = book.listenSecondsLeft === null ? null : formatListenTime(book.listenSecondsLeft);
+          const listenLeft = listenTime && t("listen.left").replace("{time}", listenTime);
           const translating = book.totalChapters !== null && book.readyChapters < book.totalChapters;
           const translationBadge = translating ? (
             <span className="text-[0.7rem] text-[var(--clay-deep)]">
@@ -180,12 +191,17 @@ export default function LibraryPage() {
                   {book.author && <p className="truncate text-xs text-[var(--ink-soft)]">{book.author}</p>}
                   {translationBadge}
                   {finishedLabel}
+                  {!book.bookmarkChapter && listenTime && (
+                    <p className="text-[0.7rem] text-[var(--ink-soft)]">{t("listen.total").replace("{time}", listenTime)}</p>
+                  )}
                   {book.bookmarkChapter && !book.finishedOn ? (
                     <div className="mt-1 flex items-center gap-2">
                       <div className="h-1 flex-1 overflow-hidden rounded-full bg-[var(--clay-tint)]">
                         <div className="h-full rounded-full bg-[var(--clay)]" style={{ width: `${progressPct}%` }} />
                       </div>
-                      <span className="shrink-0 text-[0.7rem] tabular-nums text-[var(--ink-soft)]">{progressPct}%</span>
+                      <span className="shrink-0 text-[0.7rem] tabular-nums text-[var(--ink-soft)]">
+                        {progressPct}%{listenLeft && ` · ${listenLeft}`}
+                      </span>
                     </div>
                   ) : null}
                 </div>
@@ -230,9 +246,15 @@ export default function LibraryPage() {
                     <span className="text-xs text-[var(--ink-soft)]">
                       {book.bookmarkChapter} {t("library.resume")}
                     </span>
+                    {listenLeft && <span className="text-xs tabular-nums text-[var(--ink-soft)]">{listenLeft}</span>}
                   </div>
                 ) : (
-                  <span className="text-xs text-[var(--clay-deep)]">{t("library.start")}</span>
+                  <div className="flex flex-col gap-1 text-xs">
+                    <span className="text-[var(--clay-deep)]">{t("library.start")}</span>
+                    {listenTime && (
+                      <span className="text-[var(--ink-soft)]">{t("listen.total").replace("{time}", listenTime)}</span>
+                    )}
+                  </div>
                 ))}
             </Link>
           );

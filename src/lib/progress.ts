@@ -1,4 +1,4 @@
-import { and, eq, gte } from "drizzle-orm";
+import { and, eq, gte, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { chapters, progressSnapshots, type Book } from "@/db/schema";
 import { splitIntoChunks } from "@/lib/speak";
@@ -46,6 +46,67 @@ export async function computeOverallProgressPct(
   const fraction = await computeChapterFraction(book.id, chapterNumber, chunkIndex, lang);
   const pct = ((chapterNumber - 1 + fraction) / book.totalChapters) * 100;
   return Math.max(0, Math.min(100, pct));
+}
+
+// Seconds of narration per character, measured 2026-10-28 from the cached TTS clips (Gemini,
+// voice Aoede): 2,095 Korean characters of Gatsby ran 335s, 1,265 English characters of
+// Chatterley 87s. The 0.15s gap between clips is left out (under 3%).
+const SECONDS_PER_CHAR = { ko: 0.16, en: 0.069 } as const;
+
+export type ChapterLength = { chapterNumber: number; ko: number | null; en: number | null };
+
+// Character count of every chapter's retelling, grouped by book — one query for the whole
+// library instead of one per book.
+export async function loadChapterLengths(): Promise<Map<number, ChapterLength[]>> {
+  const rows = await db
+    .select({
+      bookId: chapters.bookId,
+      chapterNumber: chapters.chapterNumber,
+      ko: sql<number | null>`length(${chapters.storyKo})`,
+      en: sql<number | null>`length(${chapters.storyEn})`,
+    })
+    .from(chapters);
+  const byBook = new Map<number, ChapterLength[]>();
+  for (const { bookId, ...row } of rows) {
+    const list = byBook.get(bookId) ?? [];
+    list.push(row);
+    byBook.set(bookId, list);
+  }
+  return byBook;
+}
+
+// Estimated listening time (seconds) from the saved sentence position to the end of the book, in
+// the language the reader listens in (Korean when they haven't picked one). Chapters not
+// translated yet count as the average length of the ones that are.
+export async function computeListenSecondsLeft(
+  book: Book,
+  lengths: ChapterLength[],
+  chapterNumber: number,
+  chunkIndex: number | null,
+  lang: "ko" | "en" | null,
+): Promise<number> {
+  const l = lang ?? "ko";
+  const byNumber = new Map(lengths.map((r) => [r.chapterNumber, r[l]]));
+  const known = lengths.map((r) => r[l]).filter((n): n is number => !!n);
+  const average = known.length ? known.reduce((a, b) => a + b, 0) / known.length : 0;
+  const lastChapter = Math.max(book.totalChapters ?? 0, ...lengths.map((r) => r.chapterNumber));
+
+  let chars = 0;
+  for (let n = chapterNumber + 1; n <= lastChapter; n++) chars += byNumber.get(n) || average;
+
+  // The bookmarked chapter: only the sentences after the saved one (the same split the player uses).
+  if (chunkIndex === null || !byNumber.get(chapterNumber)) {
+    chars += byNumber.get(chapterNumber) || average;
+  } else {
+    const [chapter] = await db
+      .select({ text: l === "en" ? chapters.storyEn : chapters.storyKo })
+      .from(chapters)
+      .where(and(eq(chapters.bookId, book.id), eq(chapters.chapterNumber, chapterNumber)))
+      .limit(1);
+    const rest = splitIntoChunks(chapter?.text ?? "").slice(chunkIndex + 1);
+    chars += rest.reduce((sum, chunk) => sum + chunk.length, 0);
+  }
+  return Math.round(chars * SECONDS_PER_CHAR[l]);
 }
 
 // Upserts today's snapshot with the max of the existing/new value — see the schema comment on

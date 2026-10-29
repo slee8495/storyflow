@@ -53,6 +53,10 @@ const STRINGS = {
   "library.empty": { ko: "아직 등록된 책이 없어요.", en: "No books yet." },
   "library.resume": { ko: "화 이어읽기", en: "Resume Ch." },
   "library.start": { ko: "읽기 시작", en: "Start reading" },
+  "listen.left": { ko: "{time} 남음", en: "{time} left" },
+  "listen.total": { ko: "듣기 {time}", en: "{time} listen" },
+  "listen.hm": { ko: "{h}시간 {m}분", en: "{h}h {m}m" },
+  "listen.m": { ko: "{m}분", en: "{m}m" },
 
   "book.loading": { ko: "불러오는 중...", en: "Loading..." },
   "book.error": { ko: "책을 불러오지 못했어요.", en: "Couldn't load this book." },

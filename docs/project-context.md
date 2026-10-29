@@ -254,6 +254,10 @@ sentence-level position.
 - Verified against the real Neon DB: current/overall % computed correctly from a simulated
   sentence position; manually inserted a 3-days-ago snapshot and confirmed the projection math
   (rate → remaining days → projected date) comes out right before deploying.
+- Listening time left (2026-10-28): the library shows "N시간 M분 남음" next to each book's %, and
+  "듣기 N시간" (whole book) for books not started. `computeListenSecondsLeft` in progress.ts sums
+  the characters after the saved sentence (untranslated chapters count as the average chapter)
+  × seconds per character measured from cached Aoede clips: ko 0.16, en 0.069.
 
 ## TTS highlight-sync rewrite (2026-07-24, third post-deploy follow-up)
 
