@@ -525,3 +525,30 @@ The library has four tabs: **읽는 중** (Reading), **다 읽음** (Finished), 
   - The book page shows "📦 나중에 읽기" next to "다 읽었어요", and "다시 읽는 중으로 꺼내기" while the book is archived.
   - The bookmark is untouched, so "이어읽기" still resumes where the reader stopped. Marking an archived book finished removes the archive row.
   - Cards in the Finished and Archived tabs open the book page (where they can be moved back) rather than jumping into a chapter.
+
+## Reading plan: 15 classics, translated nightly in the operator's order (2026-10-29)
+
+- The operator picked what to read after Anna Karenina, in order: The Brothers Karamazov, Crime and
+  Punishment, War and Peace, Moby-Dick, Don Quixote, The Count of Monte Cristo, Les Misérables, the
+  Odyssey, the Iliad, the Divine Comedy, Madame Bovary, Jane Eyre, Pride and Prejudice, Great
+  Expectations, David Copperfield (the operator wrote 리 미제라블 / 위대한 기대; the app uses the
+  standard Korean titles 레 미제라블 / 위대한 유산). All public-domain Gutenberg texts — Garnett for
+  Dostoevsky, the Maudes for War and Peace, Ormsby, Hapgood, Butler's prose Homer, Longfellow's Dante,
+  Marx-Aveling's Flaubert.
+- `src/lib/bookQueue.ts` is the catalog: metadata, Gutenberg id, chapter/part heading regexes, a
+  `startAt` for books whose contents list or preface would otherwise parse as a chapter, and the
+  retelling guidance (fixed Korean/English name spellings; Homer's Roman names → Greek ones). The
+  generic `src/db/ingestGutenberg.ts` groups chapters into rows of ≤3,500 words like Anna Karenina
+  and cuts back matter (footnotes, Hugo's letter). Dry run: 1,607 rows in all, ~201 nights at 8.
+  Sources download to data/gutenberg/ (gitignored).
+- The order lives in the DB table `reading_plan` (shared, not per reader), edited on the
+  "읽을 책 예정 순서 / Projected order" page (`/plan`, linked from the library): move up/down,
+  remove, add back. `GET/PUT /api/plan`. Anna Karenina is first, as the book being read now. Each
+  entry shows its status and a projected "done around" date (8 rows a night from 06:00, front to back).
+- The launchd job now runs at 06:00 (first run 2026-10-30) from `/Users/stanlee/SLStudio/storyflow`.
+  `src/db/nextJobs.ts` walks the plan, ingests a book when its turn comes, and exports up to 8 jobs;
+  `prompt.md` has `claude -p` translate them with two sonnet subagents and import. With nothing left
+  it posts one macOS notification. Karamazov was ingested on 10-29 so it shows in the library.
+- Listening time for a book with nothing translated yet is estimated from its source length ×
+  0.48 (ko) / 0.9 (en), the retelling-to-source ratio of the novels already written.
+

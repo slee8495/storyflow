@@ -16,6 +16,7 @@
     "db:ingest-gatsby": "tsx src/db/ingestGatsby.ts",
     "db:ingest-anna-karenina": "tsx src/db/ingestAnnaKarenina.ts",
     "db:ingest-art-tour": "tsx src/db/ingestArtTour.ts",
+    "db:ingest-gutenberg": "tsx src/db/ingestGutenberg.ts",
     "db:pregenerate": "tsx src/db/pregenerate.ts"
   },
   "dependencies": {

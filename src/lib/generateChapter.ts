@@ -4,6 +4,7 @@ import { and, eq, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import { books, chapters, type Book, type Chapter } from "@/db/schema";
 import { BOOK_MODELS, MODEL } from "@/lib/ai/model";
+import { BOOK_QUEUE } from "@/lib/bookQueue";
 
 // Cheap truncation detector, same idea as Wordflow's looksComplete — a field that got cut off
 // mid-generation almost never ends on sentence-ending punctuation.
@@ -96,6 +97,9 @@ const BOOK_GUIDANCE: Record<string, string> = {
     "Koznishev. Each row covers one or more short original chapters (or one section of a long one): continue the story " +
     "naturally without re-introducing the characters or recapping earlier parts.",
 };
+
+// Reading-plan books carry their guidance in bookQueue.ts, next to their ingest settings.
+for (const queued of BOOK_QUEUE) BOOK_GUIDANCE[queued.slug] ??= queued.guidance;
 
 const DEFAULT_ROLE =
   "You retell classic novel chapters in an easy, engaging story-style voice for a personal reading app called Storyflow. " +

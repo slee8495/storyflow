@@ -7,6 +7,7 @@ import { useUiLanguage } from "./UiLanguageProvider";
 import { useViewMode, ViewToggle } from "./ViewToggle";
 import { formatDay } from "./FinishControl";
 import { ReadingStats } from "./ReadingStats";
+import { ChevronIcon } from "./ChevronIcon";
 
 type LibraryTab = "reading" | "finished" | "archived" | "stats";
 const TAB_KEY = "storyflow:tab:library";
@@ -126,11 +127,15 @@ export default function LibraryPage() {
         />
       )}
 
-      {tab !== "stats" && shown.length > 0 && (
-        <div className="flex justify-end">
-          <ViewToggle mode={view} onChange={setView} />
-        </div>
-      )}
+      <div className="flex min-h-9 items-center justify-between gap-2">
+        <Link
+          href="/plan"
+          className="flex items-center gap-1 text-sm font-medium text-[var(--clay-deep)] hover:text-[var(--ink)]"
+        >
+          {t("plan.link")} <ChevronIcon direction="right" />
+        </Link>
+        {tab !== "stats" && shown.length > 0 && <ViewToggle mode={view} onChange={setView} />}
+      </div>
 
       {loading && <p className="text-sm text-[var(--ink-soft)]">{t("library.loading")}</p>}
       {error && <p className="text-sm text-red-600 dark:text-red-400">{t("library.error")}</p>}

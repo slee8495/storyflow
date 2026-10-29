@@ -212,6 +212,18 @@ export const archivedBooks = pgTable(
   (t) => [unique().on(t.readerId, t.bookId)],
 );
 
+// The reading plan ("Projected order" page): which books come next, in order. Shared, not per
+// reader — it also drives the nightly subscription batch (scripts/nightly/), which translates the
+// first unfinished book in this order. `slug` is a books.slug when the book is already in the
+// library, or a src/lib/bookQueue.ts entry not ingested yet, hence no foreign key. Removing a
+// book from the plan deletes its row; the book itself stays.
+export const readingPlan = pgTable("reading_plan", {
+  id: serial("id").primaryKey(),
+  slug: varchar("slug", { length: 64 }).notNull().unique(),
+  position: integer("position").notNull(),
+  addedAt: timestamp("added_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
 export type Reader = typeof readers.$inferSelect;
 export type Book = typeof books.$inferSelect;
 export type Chapter = typeof chapters.$inferSelect;

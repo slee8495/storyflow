@@ -53,7 +53,12 @@ export async function computeOverallProgressPct(
 // Chatterley 87s. The 0.15s gap between clips is left out (under 3%).
 const SECONDS_PER_CHAR = { ko: 0.16, en: 0.069 } as const;
 
-export type ChapterLength = { chapterNumber: number; ko: number | null; en: number | null };
+// Retelling length per character of English source, from the novels already written (Anna
+// Karenina 0.46/0.87, Gatsby 0.52/0.95, Chatterley 0.53/0.95) — for a book with nothing
+// translated yet, so its listening time can still be estimated from the source.
+const RETELLING_PER_SOURCE_CHAR = { ko: 0.48, en: 0.9 } as const;
+
+export type ChapterLength = { chapterNumber: number; ko: number | null; en: number | null; source: number | null };
 
 // Character count of every chapter's retelling, grouped by book — one query for the whole
 // library instead of one per book.
@@ -64,6 +69,7 @@ export async function loadChapterLengths(): Promise<Map<number, ChapterLength[]>
       chapterNumber: chapters.chapterNumber,
       ko: sql<number | null>`length(${chapters.storyKo})`,
       en: sql<number | null>`length(${chapters.storyEn})`,
+      source: sql<number | null>`length(${chapters.sourceText})`,
     })
     .from(chapters);
   const byBook = new Map<number, ChapterLength[]>();
@@ -77,7 +83,8 @@ export async function loadChapterLengths(): Promise<Map<number, ChapterLength[]>
 
 // Estimated listening time (seconds) from the saved sentence position to the end of the book, in
 // the language the reader listens in (Korean when they haven't picked one). Chapters not
-// translated yet count as the average length of the ones that are.
+// translated yet count as the average length of the ones that are (or, in a book with none
+// translated, as their source length scaled by RETELLING_PER_SOURCE_CHAR).
 export async function computeListenSecondsLeft(
   book: Book,
   lengths: ChapterLength[],
@@ -86,16 +93,17 @@ export async function computeListenSecondsLeft(
   lang: "ko" | "en" | null,
 ): Promise<number> {
   const l = lang ?? "ko";
-  const byNumber = new Map(lengths.map((r) => [r.chapterNumber, r[l]]));
   const known = lengths.map((r) => r[l]).filter((n): n is number => !!n);
   const average = known.length ? known.reduce((a, b) => a + b, 0) / known.length : 0;
+  const estimate = (r: ChapterLength) => r[l] || average || (r.source ?? 0) * RETELLING_PER_SOURCE_CHAR[l];
+  const byNumber = new Map(lengths.map((r) => [r.chapterNumber, estimate(r)]));
   const lastChapter = Math.max(book.totalChapters ?? 0, ...lengths.map((r) => r.chapterNumber));
 
   let chars = 0;
   for (let n = chapterNumber + 1; n <= lastChapter; n++) chars += byNumber.get(n) || average;
 
   // The bookmarked chapter: only the sentences after the saved one (the same split the player uses).
-  if (chunkIndex === null || !byNumber.get(chapterNumber)) {
+  if (chunkIndex === null || !lengths.find((r) => r.chapterNumber === chapterNumber)?.[l]) {
     chars += byNumber.get(chapterNumber) || average;
   } else {
     const [chapter] = await db

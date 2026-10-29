@@ -1,3 +1,5 @@
+import { BOOK_QUEUE } from "@/lib/bookQueue";
+
 // Cheaper model for chapter rewriting (structured, doesn't need frontier reasoning) — see
 // docs/project-context.md for the cost estimate that justified this over a bigger model.
 export const MODEL = "anthropic/claude-haiku-4.5";
@@ -18,6 +20,9 @@ export const BOOK_MODELS: Record<string, string> = {
   // Written fresh from fact sheets, so factual care and prose quality matter more than cost —
   // chapters are short (~600-900 words), ~$3-4 for the whole ~60-chapter book.
   "art-tour": "anthropic/claude-sonnet-5.5",
+  // The reading-plan classics, same reasons as Anna Karenina. These are normally written on the
+  // subscription (scripts/nightly/); this only matters if a reader opens a chapter before then.
+  ...Object.fromEntries(BOOK_QUEUE.map((b) => [b.slug, "anthropic/claude-sonnet-5.5"])),
 };
 
 // Routed through AI Gateway's speech.() helper, not a plain model id string. Gemini TTS over
