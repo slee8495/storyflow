@@ -499,7 +499,12 @@ features without first re-confirming the licensing/personal-use constraint above
   `scripts/nightly/prompt.md` (8 chapters, two sonnet subagents, then import), logs to
   `~/Library/Caches/storyflow-nightly/nightly.log`. Needs only the Mac awake, no open Claude
   session. When nothing is pending it runs `done.md` once (notify, docs line, commit) and unloads
-  itself. Before that it was a session-only cron. On-demand generation via the
+  itself. Before that it was a session-only cron.
+- 2026-10-29: the operator dropped 삼국지 to read Anna Karenina (already complete). The launchd job
+  was unloaded and its plist removed, and the 삼국지 book row was deleted (chapters, bookmarks,
+  progress cascade); a JSON dump of every deleted row is at
+  `~/Library/Caches/storyflow-backup/samgukji-2026-10-29.json`. `scripts/nightly/` stays for a
+  future book; `ingestSamgukji.ts` can rebuild the book from source. On-demand generation via the
   API still covers any chapter the reader opens before its batch arrives.
 - The library shows "번역 중 ready/total" and the book page a progress banner; untranslated chapters
   are dimmed in the chapter grid and marked "준비 중" in the list view. `/api/books` returns
