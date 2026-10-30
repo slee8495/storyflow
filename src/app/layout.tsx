@@ -7,8 +7,10 @@ import { OfflineBadge, OfflineProvider } from "./OfflineProvider";
 import { PlaybackProvider } from "./PlaybackProvider";
 import { ReaderProvider } from "./ReaderProvider";
 import { SettingsLink } from "./SettingsLink";
+import { ThemeProvider } from "./ThemeProvider";
 import { UiLanguageProvider } from "./UiLanguageProvider";
 import { FONT_SCALE_STORAGE_KEY } from "@/lib/fontScale";
+import { THEME_STORAGE_KEY } from "@/lib/theme";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -47,17 +49,20 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}>
+    <html lang="en" suppressHydrationWarning className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}>
       <head>
         <script
           dangerouslySetInnerHTML={{
             __html: `(function(){try{var s=localStorage.getItem(${JSON.stringify(
               FONT_SCALE_STORAGE_KEY,
-            )});if(s)document.documentElement.style.setProperty("--font-scale",s);}catch(e){}})();`,
+            )});if(s)document.documentElement.style.setProperty("--font-scale",s);var t=localStorage.getItem(${JSON.stringify(
+              THEME_STORAGE_KEY,
+            )});if(t&&t!=="system")document.documentElement.setAttribute("data-theme",t);}catch(e){}})();`,
           }}
         />
       </head>
       <body className="min-h-full flex flex-col bg-[var(--paper)] text-[var(--ink)]">
+        <ThemeProvider>
         <FontScaleProvider>
           <UiLanguageProvider>
             <OfflineProvider>
@@ -89,6 +94,7 @@ export default function RootLayout({
             </OfflineProvider>
           </UiLanguageProvider>
         </FontScaleProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

@@ -1,5 +1,18 @@
 @import "tailwindcss";
 
+/* dark: utilities follow the same rule as the palette below — the device setting unless a theme
+   was picked; night counts as dark. */
+@custom-variant dark {
+  @media (prefers-color-scheme: dark) {
+    &:where(:root:not([data-theme]) *) {
+      @slot;
+    }
+  }
+  &:where([data-theme="dark"] *, [data-theme="night"] *) {
+    @slot;
+  }
+}
+
 :root {
   --background: #f7f5f0;
   --foreground: #24262b;
@@ -49,8 +62,10 @@
   --text-2xl--line-height: calc(2.125 / 1.625);
 }
 
+/* Theme: follows the device unless the reader picked one in Settings (data-theme on <html>,
+   set before first paint by the layout's inline script). */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme]) {
     --background: #1c1d21;
     --foreground: #ebe9e4;
 
@@ -66,6 +81,42 @@
     --gold-tint: #362c18;
     --good: #7fae82;
   }
+}
+
+:root[data-theme="dark"] {
+  --background: #1c1d21;
+  --foreground: #ebe9e4;
+
+  --paper: #1c1d21;
+  --paper-raised: #26272c;
+  --ink: #ebe9e4;
+  --ink-soft: #a9abb4;
+  --line: #35363c;
+  --clay: #8ea1f0;
+  --clay-deep: #a6b6f5;
+  --clay-tint: #262c47;
+  --gold: #d9ac66;
+  --gold-tint: #362c18;
+  --good: #7fae82;
+}
+
+/* Night: for reading in a dark room. Pure black page (OLED pixels off), dim warm text — lower
+   contrast and almost no blue, so it doesn't glare or keep you awake. */
+:root[data-theme="night"] {
+  --background: #000000;
+  --foreground: #b9a588;
+
+  --paper: #000000;
+  --paper-raised: #0e0c0a;
+  --ink: #b9a588;
+  --ink-soft: #7a6c59;
+  --line: #241f19;
+  --clay: #b07d45;
+  --clay-deep: #c28d52;
+  --clay-tint: #1f170e;
+  --gold: #a98345;
+  --gold-tint: #221a0d;
+  --good: #7f8c5e;
 }
 
 body {

@@ -1,13 +1,16 @@
 "use client";
 
 import { FONT_SCALES } from "@/lib/fontScale";
+import { THEMES } from "@/lib/theme";
 import { useFontScale } from "../FontScaleProvider";
 import { ReaderGate, useReader } from "../ReaderProvider";
+import { useTheme } from "../ThemeProvider";
 import { useUiLanguage } from "../UiLanguageProvider";
 import { DownloadsSection } from "./DownloadsSection";
 
 export default function SettingsPage() {
   const { scale, setScale } = useFontScale();
+  const { theme, setTheme } = useTheme();
   const { reader, loading, signOut } = useReader();
   const { uiLang, setUiLang, t } = useUiLanguage();
 
@@ -56,6 +59,28 @@ export default function SettingsPage() {
           </button>
         </div>
         <p className="text-sm text-[var(--ink-soft)]">{t("settings.uiLanguageHint")}</p>
+      </section>
+
+      <section className="flex flex-col gap-3 rounded-2xl border border-[var(--line)] bg-[var(--paper-raised)] p-4">
+        <h2 className="text-sm font-semibold text-[var(--ink-soft)]">{t("settings.theme")}</h2>
+        <div className="grid grid-cols-4 gap-2">
+          {THEMES.map((option) => (
+            <button
+              key={option}
+              type="button"
+              onClick={() => setTheme(option)}
+              aria-pressed={theme === option}
+              className={`rounded-xl border px-2 py-2.5 text-xs font-medium transition-colors ${
+                theme === option
+                  ? "border-[var(--clay-deep)] bg-[var(--clay-tint)] text-[var(--clay-deep)]"
+                  : "border-[var(--line)] text-[var(--ink-soft)] hover:text-[var(--ink)]"
+              }`}
+            >
+              {t(`settings.theme.${option}`)}
+            </button>
+          ))}
+        </div>
+        <p className="text-sm text-[var(--ink-soft)]">{t("settings.themeHint")}</p>
       </section>
 
       <section className="flex flex-col gap-3 rounded-2xl border border-[var(--line)] bg-[var(--paper-raised)] p-4">

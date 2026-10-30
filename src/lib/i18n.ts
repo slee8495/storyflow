@@ -159,6 +159,12 @@ const STRINGS = {
   "settings.accountHint": { ko: "로그아웃하면 이 기기에서 다시 이름을 입력해야 해요. 진도는 서버에 그대로 남아있어요.", en: "Signing out just clears this device — your progress stays saved under your name." },
   "settings.uiLanguage": { ko: "화면 언어", en: "App Language" },
   "settings.uiLanguageHint": { ko: "버튼, 안내 문구 등 화면 UI에 쓰이는 언어예요. 본문 언어(한글/English)는 각 챕터에서 따로 고를 수 있어요.", en: "Controls buttons and labels throughout the app. Story text language is chosen separately on each chapter." },
+  "settings.theme": { ko: "화면 테마", en: "Theme" },
+  "settings.theme.system": { ko: "기기 설정", en: "Device" },
+  "settings.theme.light": { ko: "밝게", en: "Light" },
+  "settings.theme.dark": { ko: "어둡게", en: "Dark" },
+  "settings.theme.night": { ko: "야간", en: "Night" },
+  "settings.themeHint": { ko: "야간은 깜깜한 곳에서 읽을 때 쓰세요. 바탕은 완전히 검게, 글씨는 어둡고 따뜻한 색(푸른빛 거의 없음)이라 눈부심이 적어요.", en: "Night is for reading in the dark: a pure black page with dim, warm text and almost no blue light, so it doesn't glare." },
   "settings.fontSize": { ko: "글씨 크기", en: "Font Size" },
   "settings.fontSizeHint": { ko: "본문 읽기 크기를 조절해요.", en: "Adjust the reading text size." },
 } as const;

@@ -552,3 +552,6 @@ The library has four tabs: **읽는 중** (Reading), **다 읽음** (Finished), 
 - Listening time for a book with nothing translated yet is estimated from its source length ×
   0.48 (ko) / 0.9 (en), the retelling-to-source ratio of the novels already written.
 
+
+## Theme setting (2026-10-29)
+Settings → 화면 테마: 기기 설정 / 밝게 / 어둡게 / 야간. Stored in localStorage (`storyflow:theme`), applied as `data-theme` on <html> before first paint. 야간 = black page with dim warm text (low blue light) for reading in a dark room. `dark:` utilities follow the same rule via a custom variant in globals.css.
