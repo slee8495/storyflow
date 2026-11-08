@@ -372,6 +372,10 @@ highlight sync) on an actual device before considering this closed.**
   `storyflowAudio` message handler (`src/lib/nativeAudio.ts`), and AVAudioPlayer plays it. The
   likely cause was the web view `<audio>` being fed by a throttled background web process. This
   was not verified in a car at the time. Browsers and build 1 still use `<audio>`.
+- iPad (build 0.1 (5), 2026-11-07, chairman's ask via the control tower): `TARGETED_DEVICE_FAMILY`
+  "1,2"; iPad gets all four orientations, iPhone stays portrait-only. No layout change was needed —
+  the web app already draws everything in a centered `max-w-2xl` (672pt) column. Archives are kept
+  at `~/.slstudio/testflight/archives/com.slstudio.storyflow.xcarchive` (the tower re-uses them).
 - App icon: `src/lib/appIcon.tsx` `ICON_SVG` is the single source. The iOS
   `AppIcon.png` is rendered from it at 1024px with alpha stripped.
 
