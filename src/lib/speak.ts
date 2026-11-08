@@ -206,17 +206,87 @@ function decodeChunk(buffer: ArrayBuffer): Promise<AudioBuffer | null> {
 // telephone-quality 8kHz) and cuts the file to roughly a third.
 const OUTPUT_SAMPLE_RATE = 16000;
 
+// Every chunk sent to /api/speak covers up to MAX_CHUNK_LENGTH characters — often 2-3 short
+// sentences bucketed together, not one sentence per request. Measured directly against a real
+// 125-chunk chapter: 320 separate near-silent stretches (well beyond just the leading/trailing
+// padding at each clip's edges) added up to over three minutes of dead air across a ~20 minute
+// file. Trimming only the very edges of each clip barely moved that number (a follow-up measurement
+// after an edges-only trim recovered under 5% of the dead air) — the rest is the TTS engine's own
+// natural pauses *between the sentences bundled inside a single clip*, which an edges-only trim
+// can't reach at all. compressSilence walks each decoded chunk once and caps every silent stretch
+// (wherever it falls) to PAUSE_SEC, and drops leading/trailing silence entirely — that's what
+// actually produced "the audio just stops for a while" reports, not missing or failed chunks
+// (fetch/decode both measured at 0 failures on the same chapter).
+const SILENCE_AMPLITUDE_THRESHOLD = 0.01;
+const PAUSE_SEC = 0.15;
+
+function compressSilence(buffer: AudioBuffer): AudioBuffer {
+  const sr = buffer.sampleRate;
+  const channels = buffer.numberOfChannels;
+  const length = buffer.length;
+  const data: Float32Array[] = [];
+  for (let ch = 0; ch < channels; ch++) data.push(buffer.getChannelData(ch));
+
+  const isSilentAt = (i: number) => {
+    for (let ch = 0; ch < channels; ch++) {
+      if (Math.abs(data[ch][i]) >= SILENCE_AMPLITUDE_THRESHOLD) return false;
+    }
+    return true;
+  };
+
+  const maxPauseSamples = Math.round(PAUSE_SEC * sr);
+  const ranges: { start: number; end: number }[] = [];
+  let i = 0;
+  while (i < length) {
+    const silent = isSilentAt(i);
+    let j = i + 1;
+    while (j < length && isSilentAt(j) === silent) j++;
+    if (silent) {
+      // Leading (nothing kept yet) or trailing (runs to the very end) silence is dropped
+      // entirely; a pause in the middle of the clip is capped, not removed, so sentences bundled
+      // into one chunk still sound like separate sentences rather than running together.
+      const isEdge = ranges.length === 0 || j === length;
+      const keepLen = isEdge ? 0 : Math.min(j - i, maxPauseSamples);
+      if (keepLen > 0) ranges.push({ start: i, end: i + keepLen });
+    } else {
+      ranges.push({ start: i, end: j });
+    }
+    i = j;
+  }
+
+  const newLength = ranges.reduce((sum, r) => sum + (r.end - r.start), 0);
+  // A chunk that's near-silent for its *entire* length (nothing above the threshold anywhere)
+  // would compress to nothing — keep the original rather than collapse it to an empty buffer.
+  if (newLength === 0) return buffer;
+
+  const newBuffer = new AudioBuffer({ length: newLength, numberOfChannels: channels, sampleRate: sr });
+  for (let ch = 0; ch < channels; ch++) {
+    const src = data[ch];
+    const dst = newBuffer.getChannelData(ch);
+    let pos = 0;
+    for (const r of ranges) {
+      dst.set(src.subarray(r.start, r.end), pos);
+      pos += r.end - r.start;
+    }
+  }
+  return newBuffer;
+}
+
 // Concatenates decoded PCM chunks into one gapless buffer AND resamples to OUTPUT_SAMPLE_RATE in
 // the same pass — sample-accurate (unlike concatenating the original compressed byte streams; see
 // the file header) and far smaller once WAV-encoded. OfflineAudioContext resamples automatically
 // when its own sample rate differs from a scheduled source buffer's native rate, so scheduling
-// each chunk back-to-back via start(when) does both jobs at once instead of a separate resample
-// pass. Real-world duration is preserved exactly regardless of sample rate, so the cumulative
-// `cursor += c.buffer.duration` offset math in speak() (computed from the pre-resample buffers)
-// stays valid against this rendered result.
-async function renderCombinedBuffer(buffers: AudioBuffer[]): Promise<AudioBuffer> {
-  const channels = buffers[0].numberOfChannels;
-  const totalDuration = buffers.reduce((sum, b) => sum + b.duration, 0);
+// each (already silence-compressed) chunk back-to-back via start(when) does both jobs at once.
+// Returns the actual per-chunk duration used for scheduling (compressed length + the fixed
+// inter-chunk pause) so callers can derive highlight-sync offsets from the SAME numbers that were
+// actually rendered, rather than each chunk's original uncompressed duration — using the original
+// duration here would silently drift the highlight out of sync with the compressed audio, the same
+// class of bug this whole rewrite was meant to fix.
+async function renderCombinedBuffer(buffers: AudioBuffer[]): Promise<{ buffer: AudioBuffer; chunkDurations: number[] }> {
+  const compressed = buffers.map(compressSilence);
+  const channels = compressed[0].numberOfChannels;
+  const chunkDurations = compressed.map((b, i) => b.duration + (i < compressed.length - 1 ? PAUSE_SEC : 0));
+  const totalDuration = chunkDurations.reduce((sum, d) => sum + d, 0);
   const offlineCtx = new OfflineAudioContext(
     channels,
     Math.ceil(totalDuration * OUTPUT_SAMPLE_RATE),
@@ -224,15 +294,16 @@ async function renderCombinedBuffer(buffers: AudioBuffer[]): Promise<AudioBuffer
   );
 
   let when = 0;
-  for (const buf of buffers) {
+  compressed.forEach((buf, i) => {
     const source = offlineCtx.createBufferSource();
     source.buffer = buf;
     source.connect(offlineCtx.destination);
     source.start(when);
-    when += buf.duration;
-  }
+    when += chunkDurations[i];
+  });
 
-  return offlineCtx.startRendering();
+  const buffer = await offlineCtx.startRendering();
+  return { buffer, chunkDurations };
 }
 
 // Encodes a decoded PCM buffer as a playable WAV blob — <audio> elements don't accept raw
@@ -348,7 +419,7 @@ export async function speak(
     return;
   }
 
-  const combined = await renderCombinedBuffer(decodedOk.map((c) => c.buffer));
+  const { buffer: combined, chunkDurations } = await renderCombinedBuffer(decodedOk.map((c) => c.buffer));
   if (token !== playToken) return;
   const blob = audioBufferToWavBlob(combined);
   const url = URL.createObjectURL(blob);
@@ -357,12 +428,13 @@ export async function speak(
 
   // Cumulative start time (seconds) for each included chunk, paired with its real index into
   // `chunks` (not its position in `ok`/`decodedOk`, since failed chunks were dropped). Durations
-  // come straight from each chunk's own decoded sample count — sample-accurate, see the file
-  // header.
+  // come from `chunkDurations` (post silence-trim, the numbers actually used to schedule playback
+  // in renderCombinedBuffer) rather than each chunk's raw decoded duration, so offsets line up with
+  // what was actually rendered instead of drifting by however much silence got trimmed out.
   let cursor = 0;
-  const offsets = decodedOk.map((c) => {
+  const offsets = decodedOk.map((c, i) => {
     const start = cursor;
-    cursor += c.buffer.duration;
+    cursor += chunkDurations[i];
     return { start, index: c.index };
   });
 
