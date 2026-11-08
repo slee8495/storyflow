@@ -48,7 +48,7 @@ export function DownloadsSection({ readerId }: { readerId: number }) {
   const books = Object.entries(manifest.books);
 
   return (
-    <section className="flex flex-col gap-3 rounded-2xl border border-[var(--line)] bg-[var(--paper-raised)] p-4">
+    <section className="flex flex-col gap-3 rounded-2xl border border-[var(--line)] bg-[var(--paper-raised)] p-4 lg:col-span-2">
       <div className="flex items-center justify-between">
         <h2 className="text-sm font-semibold text-[var(--ink-soft)]">{t("offline.manage")}</h2>
         {usage !== null && (

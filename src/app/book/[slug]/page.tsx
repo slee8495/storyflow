@@ -238,7 +238,9 @@ export default function BookPage() {
   const description = uiLang === "en" ? (book.descriptionEn ?? book.description) : book.description;
 
   return (
-    <div className="flex flex-col gap-4">
+    // Laptop/iPad landscape: details and bookmarks on the left, the table of contents on the right.
+    <div className="flex flex-col gap-4 lg:grid lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] lg:grid-rows-[auto_1fr] lg:items-start lg:gap-x-8 lg:gap-y-4">
+      <div className="flex flex-col gap-4 lg:col-start-1 lg:row-start-1">
       <Link href="/" className="flex items-center gap-1 self-start text-xs text-[var(--ink-soft)] hover:text-[var(--ink)]">
         <ChevronIcon direction="left" /> {t("nav.library")}
       </Link>
@@ -282,7 +284,9 @@ export default function BookPage() {
         startChapter={bookmarkChapter ?? 1}
         readerId={reader.id}
       />
+      </div>
 
+      <div className="flex flex-col gap-4 lg:col-start-2 lg:row-span-2 lg:row-start-1">
       <div className="flex items-center justify-between">
         <h2 className="text-sm font-semibold text-[var(--ink-soft)]">{t("nav.tableOfContents")}</h2>
         <ViewToggle mode={view} onChange={setView} />
@@ -317,7 +321,7 @@ export default function BookPage() {
         </ul>
       )}
 
-      <div className={view === "list" ? "hidden" : "grid grid-cols-5 gap-1.5 sm:grid-cols-6"}>
+      <div className={view === "list" ? "hidden" : "grid grid-cols-5 gap-1.5 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-6 xl:grid-cols-8"}>
         {chapters.map((c) => {
           const saved = offlineManifest.books[slug]?.chapters[c.chapterNumber];
           return (
@@ -342,8 +346,9 @@ export default function BookPage() {
           );
         })}
       </div>
+      </div>
 
-      <section className="flex flex-col gap-3 rounded-xl border border-[var(--line)] bg-[var(--paper-raised)] p-4 shadow-sm">
+      <section className="flex flex-col gap-3 rounded-xl border border-[var(--line)] bg-[var(--paper-raised)] p-4 shadow-sm lg:col-start-1 lg:row-start-2">
         <h2 className="text-sm font-semibold text-[var(--ink-soft)]">
           {t("marks.title")} {marks.length > 0 && `(${marks.length})`}
         </h2>

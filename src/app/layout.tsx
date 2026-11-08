@@ -72,7 +72,7 @@ export default function RootLayout({
                     className="sticky top-0 z-10 border-b border-[var(--line)] bg-[var(--paper)]/90 backdrop-blur"
                     style={{ paddingTop: "env(safe-area-inset-top)" }}
                   >
-                    <div className="mx-auto flex max-w-2xl items-center justify-between px-4 py-3">
+                    <div className="mx-auto flex max-w-2xl items-center justify-between px-4 py-3 md:px-6 lg:max-w-5xl">
                       <Link href="/" className="text-lg font-semibold tracking-tight text-[var(--clay-deep)]">
                         📚 Storyflow
                       </Link>
@@ -83,7 +83,7 @@ export default function RootLayout({
                     </div>
                   </header>
                   <main
-                    className="mx-auto w-full max-w-2xl flex-1 px-4 py-6"
+                    className="mx-auto w-full max-w-2xl flex-1 px-4 py-6 md:px-6 md:py-8 lg:max-w-5xl"
                     style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
                   >
                     {children}

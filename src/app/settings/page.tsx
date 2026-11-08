@@ -18,8 +18,8 @@ export default function SettingsPage() {
   if (!reader) return <ReaderGate />;
 
   return (
-    <div className="flex flex-col gap-6">
-      <h1 className="text-xl font-semibold text-[var(--ink)]">{t("settings.title")}</h1>
+    <div className="flex flex-col gap-6 lg:grid lg:grid-cols-2 lg:items-start">
+      <h1 className="text-xl font-semibold text-[var(--ink)] lg:col-span-2">{t("settings.title")}</h1>
 
       <section className="flex flex-col gap-3 rounded-2xl border border-[var(--line)] bg-[var(--paper-raised)] p-4">
         <h2 className="text-sm font-semibold text-[var(--ink-soft)]">{t("settings.account")}</h2>

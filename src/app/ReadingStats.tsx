@@ -46,7 +46,7 @@ export function ReadingStats({ finished }: { finished: FinishedEntry[] }) {
   ];
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-4 md:max-w-2xl">
       <div className="grid grid-cols-3 gap-2">
         {tiles.map((tile) => (
           <div key={tile.label} className="rounded-xl border border-[var(--line)] bg-[var(--paper-raised)] p-3 text-center shadow-sm">

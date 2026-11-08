@@ -17,7 +17,7 @@ export function NowPlayingBar() {
       className="fixed inset-x-0 bottom-0 z-30 border-t border-[var(--line)] bg-[var(--paper-raised)]/95 backdrop-blur"
       style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
     >
-      <div className="mx-auto flex max-w-2xl items-center gap-3 px-4 py-3">
+      <div className="mx-auto flex max-w-2xl items-center gap-3 px-4 py-3 md:px-6 lg:max-w-5xl">
         <span className="text-lg">🔊</span>
         <span className="min-w-0 flex-1 truncate text-sm font-medium text-[var(--ink)]">{label}</span>
         <button

@@ -93,7 +93,7 @@ export default function LibraryPage() {
   const tabButton = (value: LibraryTab, label: string, count?: number) => (
     <button
       onClick={() => setTab(value)}
-      className={`flex-1 rounded-full px-3 py-1.5 text-sm font-medium ${
+      className={`flex-1 rounded-full px-3 py-1.5 text-sm font-medium md:py-2 ${
         tab === value ? "bg-[var(--paper-raised)] text-[var(--ink)] shadow-sm" : "text-[var(--ink-soft)]"
       }`}
     >
@@ -108,7 +108,7 @@ export default function LibraryPage() {
         {t("library.greeting")} {reader.name}
       </p>
 
-      <div className="flex gap-1 rounded-full bg-[var(--clay-tint)] p-1">
+      <div className="flex gap-1 rounded-full bg-[var(--clay-tint)] p-1 md:max-w-xl">
         {tabButton("reading", t("tabs.reading"), reading.length)}
         {tabButton("finished", t("tabs.finished"), finished.length)}
         {tabButton("archived", t("tabs.archived"), archived.length)}
@@ -150,7 +150,7 @@ export default function LibraryPage() {
 
       <div
         className={
-          tab === "stats" ? "hidden" : view === "list" ? "flex flex-col gap-2" : "grid grid-cols-2 gap-3 sm:grid-cols-3"
+          tab === "stats" ? "hidden" : view === "list" ? "flex flex-col gap-2 lg:grid lg:grid-cols-2 lg:gap-3" : "grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 md:gap-4 lg:grid-cols-5"
         }
       >
         {shown.map((book) => {

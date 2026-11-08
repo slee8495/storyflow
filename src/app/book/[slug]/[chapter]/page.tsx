@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { getImageProps } from "next/image";
 import { splitIntoChunks } from "@/lib/speak";
@@ -213,7 +213,7 @@ function HighlightedText({
 }) {
   const chunks = splitIntoChunks(text);
   return (
-    <p className="text-base leading-relaxed whitespace-pre-line">
+    <p className="text-base leading-relaxed whitespace-pre-line xl:text-lg">
       {chunks.map((chunk, i) => {
         const isPlayingHere = isActiveSection && i === activeChunkIndex;
         const isMarked = !isActiveSection && i === markerIndex;
@@ -252,6 +252,7 @@ function HighlightedText({
 export default function ChapterPage() {
   const { slug, chapter: chapterParam } = useParams<{ slug: string; chapter: string }>();
   const chapterNumber = Number(chapterParam);
+  const router = useRouter();
   const { reader, loading: readerLoading } = useReader();
   const { sourceId: playingSourceId, speakState, activeChunkIndex, playText, pause, resume, stop } = usePlayback();
   const { t } = useUiLanguage();
@@ -456,6 +457,20 @@ export default function ChapterPage() {
     playText(thisSourceId, title ?? `Ch. ${chapterNumber}`, text, startIndex);
   }
 
+  // Keyboard: ← / → turn to the previous / next chapter (ignored while typing or with modifiers).
+  useEffect(() => {
+    if (!data) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
+      const target = e.target as HTMLElement | null;
+      if (target?.closest("input, textarea, select, [contenteditable]")) return;
+      if (e.key === "ArrowLeft" && data.hasPrev) router.push(`/book/${slug}/${chapterNumber - 1}`);
+      if (e.key === "ArrowRight" && data.hasNext) router.push(`/book/${slug}/${chapterNumber + 1}`);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [data, router, slug, chapterNumber]);
+
   const headerHeight = useElementHeight("body header");
   const toolbarHeight = useElementHeight(`#${TOOLBAR_ID}`, [readerLoading, reader]);
 
@@ -465,7 +480,7 @@ export default function ChapterPage() {
   if (!reader) return <ReaderGate />;
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-4 md:mx-auto md:w-full md:max-w-3xl">
       {/* Pinned under the site header so the language can be switched mid-chapter without scrolling back up. */}
       <div
         id={TOOLBAR_ID}

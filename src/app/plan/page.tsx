@@ -97,7 +97,7 @@ export default function PlanPage() {
   const iconButton = "flex h-8 w-8 items-center justify-center rounded-full text-[var(--ink-soft)] hover:bg-[var(--clay-tint)] hover:text-[var(--ink)] disabled:opacity-25 disabled:hover:bg-transparent";
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-4 md:mx-auto md:w-full md:max-w-2xl">
       <Link href="/" className="flex w-fit items-center gap-1 text-sm text-[var(--ink-soft)] hover:text-[var(--ink)]">
         <ChevronIcon direction="left" /> {t("nav.library")}
       </Link>
