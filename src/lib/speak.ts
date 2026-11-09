@@ -214,11 +214,15 @@ const OUTPUT_SAMPLE_RATE = 16000;
 // after an edges-only trim recovered under 5% of the dead air) — the rest is the TTS engine's own
 // natural pauses *between the sentences bundled inside a single clip*, which an edges-only trim
 // can't reach at all. compressSilence walks each decoded chunk once and caps every silent stretch
-// (wherever it falls) to PAUSE_SEC, and drops leading/trailing silence entirely — that's what
+// (wherever it falls) to MAX_PAUSE_SEC, and drops leading/trailing silence entirely — that's what
 // actually produced "the audio just stops for a while" reports, not missing or failed chunks
 // (fetch/decode both measured at 0 failures on the same chapter).
 const SILENCE_AMPLITUDE_THRESHOLD = 0.01;
-const PAUSE_SEC = 0.15;
+// A natural sentence pause is roughly 0.4-0.7s. Capping pauses at 0.15s (the first version of this)
+// ran sentences together and made the narration sound rushed, so only stretches longer than a
+// normal pause are shortened now, and the gap stitched between chunks matches a sentence break.
+const MAX_PAUSE_SEC = 0.6;
+const CHUNK_GAP_SEC = 0.45;
 
 function compressSilence(buffer: AudioBuffer): AudioBuffer {
   const sr = buffer.sampleRate;
@@ -234,7 +238,7 @@ function compressSilence(buffer: AudioBuffer): AudioBuffer {
     return true;
   };
 
-  const maxPauseSamples = Math.round(PAUSE_SEC * sr);
+  const maxPauseSamples = Math.round(MAX_PAUSE_SEC * sr);
   const ranges: { start: number; end: number }[] = [];
   let i = 0;
   while (i < length) {
@@ -285,7 +289,7 @@ function compressSilence(buffer: AudioBuffer): AudioBuffer {
 async function renderCombinedBuffer(buffers: AudioBuffer[]): Promise<{ buffer: AudioBuffer; chunkDurations: number[] }> {
   const compressed = buffers.map(compressSilence);
   const channels = compressed[0].numberOfChannels;
-  const chunkDurations = compressed.map((b, i) => b.duration + (i < compressed.length - 1 ? PAUSE_SEC : 0));
+  const chunkDurations = compressed.map((b, i) => b.duration + (i < compressed.length - 1 ? CHUNK_GAP_SEC : 0));
   const totalDuration = chunkDurations.reduce((sum, d) => sum + d, 0);
   const offlineCtx = new OfflineAudioContext(
     channels,
