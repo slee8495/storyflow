@@ -35,6 +35,11 @@ export function parseGutenberg(raw: string, book: QueuedBook): SourceRow[] {
   const start = raw.match(START);
   let body = raw.slice(start ? start.index! + start[0].length : 0);
   body = body.slice(0, body.indexOf(END) === -1 ? body.length : body.indexOf(END)).replace(/\r/g, "");
+  if (book.endAt) {
+    const lines = body.split("\n");
+    const end = lines.findIndex((l) => book.endAt!.test(l.trim()));
+    if (end !== -1) body = lines.slice(0, end).join("\n");
+  }
 
   // Walk the lines once: each part heading closes the current part, each chapter heading opens a
   // chapter. Text before the first chapter heading (title page, preface, contents) is dropped.
@@ -58,15 +63,25 @@ export function parseGutenberg(raw: string, book: QueuedBook): SourceRow[] {
   }
   const withText = chaptersFound.map((c) => ({ ...c, text: c.lines.join("\n").trim() }));
   const startAt = book.startAt ?? book.chapterHeading;
-  const first = withText.findIndex((c) => startAt.test(c.heading) && wordCount(c.text) >= MIN_CHAPTER_WORDS);
+  const minWords = book.minChapterWords ?? MIN_CHAPTER_WORDS;
+  const first = withText.findIndex((c) => startAt.test(c.heading) && wordCount(c.text) >= minWords);
   const story = withText.slice(Math.max(0, first));
   // Back matter (the translator's footnotes, Hugo's letter) follows the last chapter: cut there.
-  const backMatter = story.findIndex((c) => BACK_MATTER.test(c.text));
+  // A collection of plays has footnotes after each one instead — trim each play at its own.
+  const backMatter = book.footnotesPerChapter ? -1 : story.findIndex((c) => BACK_MATTER.test(c.text));
+  if (book.footnotesPerChapter) {
+    story.forEach((c, i) => {
+      const at = c.text.search(BACK_MATTER);
+      if (at !== -1) story[i] = { ...c, text: c.text.slice(0, at).trim() };
+    });
+  }
   if (backMatter !== -1) {
     const c = story[backMatter];
     story.splice(backMatter, story.length, { ...c, text: c.text.slice(0, c.text.search(BACK_MATTER)).trim() });
   }
-  const chapters = story.filter((c) => wordCount(c.text) >= MIN_CHAPTER_WORDS);
+  const chapters = story
+    .filter((c) => wordCount(c.text) >= minWords)
+    .map((c, i) => (book.chapterLabels?.[i] ? { ...c, heading: book.chapterLabels[i] } : c));
   if (chapters.length === 0) throw new Error(`${book.slug}: no chapters matched`);
 
   const label = (c: { heading: string; part: string }) => (c.part ? `${c.part} · ${c.heading}` : c.heading);
