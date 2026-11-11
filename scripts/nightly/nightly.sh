@@ -34,6 +34,8 @@ if [ "$PENDING" = "ALL_DONE" ]; then
 fi
 rm -f "$WORK/.all-done-notified"
 
+# Claude 로그인 토큰(2026-11-10) — 키체인 로그인이 끊겨도 루프가 돈다. 파일이 없으면 그대로.
+if [ -f "$HOME/.slstudio/claude_env" ]; then . "$HOME/.slstudio/claude_env"; fi
 # 컨트롤 타워 예산 게이트(10-26 사용자: "Max 주간 한도·맥 부하를 지휘") — 넘기라고 하면 이번 차례는 모델을 부르지 않는다. 타워가 없거나 고장이면 그냥 진행. 상태: ~/.slstudio/tower/STATUS.md
 TOWER_GATE="$HOME/.slstudio/tower/gate"; if [ -x "$TOWER_GATE" ] && ! "$TOWER_GATE" storyflow; then log "control tower: skipped this run"; exit 0; fi
 PROMPT=$(sed -e "s|{{BATCH_DIR}}|$BATCH|" -e "s|{{PENDING}}|$PENDING|" scripts/nightly/prompt.md)
