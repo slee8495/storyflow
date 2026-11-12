@@ -81,13 +81,15 @@ export default function LibraryPage() {
   if (!reader) return <ReaderGate />;
 
   // Reading tab: whatever was opened most recently on top, then books not started yet.
-  // Finished tab: most recently finished first. Archived tab: set aside mid-way, newest first.
+  // Finished tab: most recently finished first. Archived tab: set aside (mid-way, or a finished book
+  // put away), newest first — a finished book there still counts in the stats.
   const reading = books
     .filter((b) => !b.finishedOn && !b.archivedAt)
     .sort((a, b) => (b.lastReadAt ?? "").localeCompare(a.lastReadAt ?? ""));
-  const finished = books.filter((b) => b.finishedOn).sort((a, b) => b.finishedOn!.localeCompare(a.finishedOn!));
+  const allFinished = books.filter((b) => b.finishedOn).sort((a, b) => b.finishedOn!.localeCompare(a.finishedOn!));
+  const finished = allFinished.filter((b) => !b.archivedAt);
   const archived = books
-    .filter((b) => !b.finishedOn && b.archivedAt)
+    .filter((b) => b.archivedAt)
     .sort((a, b) => b.archivedAt!.localeCompare(a.archivedAt!));
   const shown = tab === "finished" ? finished : tab === "archived" ? archived : reading;
   const tabButton = (value: LibraryTab, label: string, count?: number) => (
@@ -117,7 +119,7 @@ export default function LibraryPage() {
 
       {tab === "stats" && !loading && !error && (
         <ReadingStats
-          finished={finished.map((b) => ({
+          finished={allFinished.map((b) => ({
             slug: b.slug,
             title: uiLang === "en" ? (b.titleEn ?? b.title) : b.title,
             author: b.author,

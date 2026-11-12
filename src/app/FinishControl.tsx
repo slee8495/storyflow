@@ -20,7 +20,8 @@ export function formatDay(day: string, uiLang: "ko" | "en"): string {
 // "다 읽었어요" on the book page and at the end of the last chapter: marks the book finished
 // today (which moves it to the library's Finished tab), lets the date be corrected, or undoes it.
 // With `allowArchive` (the book page) it also offers "나중에 읽기": set the book aside in the
-// Archived tab without losing the reading position, and take it back out again.
+// Archived tab without losing the reading position, and take it back out again. A finished book
+// can be put in the Archived tab too; it keeps its finished date (and its place in the stats).
 export function FinishControl({
   slug,
   readerId,
@@ -132,6 +133,7 @@ export function FinishControl({
     >
       <p className="text-sm text-[var(--ink)]">
         📗 {t("finish.done").replace("{date}", formatDay(finishedOn, uiLang))}
+        {allowArchive && archived && ` · 📦 ${t("archive.finishedInArchive")}`}
       </p>
       {editing ? (
         <div className="flex flex-wrap items-center gap-2 text-xs">
@@ -147,13 +149,18 @@ export function FinishControl({
           </button>
         </div>
       ) : (
-        <div className="flex gap-3 text-xs text-[var(--ink-soft)]">
+        <div className="flex flex-wrap gap-3 text-xs text-[var(--ink-soft)]">
           <button onClick={() => setEditing(true)} className="hover:text-[var(--ink)]">
             {t("finish.changeDate")}
           </button>
           <button onClick={undo} className="hover:text-[var(--ink)]">
             {t("finish.undo")}
           </button>
+          {allowArchive && (
+            <button onClick={() => setAside(!archived)} className="hover:text-[var(--ink)]">
+              📦 {archived ? t("archive.restoreFinished") : t("archive.markFinished")}
+            </button>
+          )}
         </div>
       )}
     </div>
