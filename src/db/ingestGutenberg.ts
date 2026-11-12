@@ -49,6 +49,10 @@ export function parseGutenberg(raw: string, book: QueuedBook): SourceRow[] {
   let current: Chapter | null = null;
   for (const line of body.split("\n")) {
     const trimmed = line.trim();
+    if (book.skipHeading?.test(trimmed)) {
+      current = null;
+      continue;
+    }
     if (book.partHeading?.test(trimmed) && !book.chapterHeading.test(trimmed)) {
       part = trimmed;
       current = null;
