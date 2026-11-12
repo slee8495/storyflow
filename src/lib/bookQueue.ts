@@ -24,6 +24,9 @@ export type QueuedBook = {
   startAt?: RegExp;
   // A line where the story ends (endnotes, appendices) — everything from it on is dropped.
   endAt?: RegExp;
+  // A line that starts a stretch to drop until the next chapter heading — notes printed after
+  // each book of a work rather than once at the end.
+  skipHeading?: RegExp;
   // Headings to show instead of the matched lines, in order — for plays whose only marker is a
   // repeated line like "DRAMATIS PERSONAE".
   chapterLabels?: string[];
@@ -786,6 +789,133 @@ export const BOOK_QUEUE: QueuedBook[] = [
       "are a few lines, one is only dots — keep such jokes). Use these spellings every time — Korean: 브라스 쿠바스, " +
       "비르질리아, 로부 네베스, 킨카스 보르바, 마르셀라, 에우제니아, 도나 플라시다, 프루덴시우, 리우데자네이루; English: Brás " +
       "Cubas, Virgília, Lobo Neves, Quincas Borba, Marcela, Eugênia, Dona Plácida, Prudêncio, Rio de Janeiro. " + CONTINUE,
+  },
+  {
+    slug: "plutarch-lives",
+    title: "플루타르코스 영웅전",
+    titleEn: "Plutarch's Lives",
+    author: "플루타르코스 (Plutarch)",
+    gutenbergId: 674,
+    coverColor: "#5c4a1f",
+    description: "테세우스부터 알렉산드로스, 카이사르, 안토니우스까지. 그리스와 로마의 영웅을 짝지어 그 삶과 성품을 견주는 인물 열전.",
+    descriptionEn: "Theseus to Alexander, Caesar and Antony — great Greeks and Romans paired, their lives and characters weighed side by side.",
+    chapterHeading: /^(THESEUS|ROMULUS|COMPARISON OF ROMULUS WITH THESEUS|LYCURGUS|NUMA POMPILIUS|COMPARISON OF NUMA WITH LYCURGUS|SOLON|POPLICOLA|COMPARISON OF POPLICOLA WITH SOLON|THEMISTOCLES|CAMILLUS|PERICLES|FABIUS|COMPARISON OF PERICLES WITH FABIUS|ALCIBIADES|CORIOLANUS|COMPARISON OF ALCIBIADES WITH CORIOLANUS|TIMOLEON|AEMILIUS PAULUS|COMPARISON OF TIMOLEON WITH AEMILIUS PAULUS|PELOPIDAS|MARCELLUS|COMPARISION OF PELOPIDAS WITH MARCELLUS|ARISTIDES|MARCUS CATO|COMPARISON OF ARISTIDES WITH MARCUS CATO\.|PHILOPOEMEN|FLAMININUS|COMPARISON OF PHILOPOEMEN WITH FLAMININUS|PYRRHUS|CAIUS MARIUS|LYSANDER|SYLLA|COMPARISON OF LYSANDER WITH SYLLA|CIMON|LUCULLUS|COMPARISON OF LUCULLUS WITH CIMON|NICIAS|CRASSUS|COMPARISON OF CRASSUS WITH NICIAS|SERTORIUS|EUMENES|COMPARISON OF SERTORIUS WITH EUMENES|AGESILAUS|POMPEY|COMPARISON OF POMPEY AND AGESILAUS|ALEXANDER|CAESAR|PHOCION|CATO THE YOUNGER|AGIS|CLEOMENES|TIBERIUS GRACCHUS|CAIUS GRACCHUS|COMPARISON OF TIBERIUS AND CAIUS GRACCHUS WITH AGIS AND CLEOMENES|DEMOSTHENES|CICERO|COMPARISON OF DEMOSTHENES AND CICERO|DEMETRIUS|ANTONY|COMPARISON OF DEMETRIUS AND ANTONY|DION|MARCUS BRUTUS|COMPARISON OF DION AND BRUTUS|ARATUS|ARTAXERXES|GALBA|OTHO)$/,
+    estimatedRows: 250,
+    guidance:
+      "This is Plutarch's Parallel Lives, from the Dryden translation revised by Arthur Hugh Clough. Each Life is a " +
+      "biography; each 'Comparison' weighs the two men just told. Plutarch cares about character — keep his moral " +
+      "judgments and anecdotes. It is history, not a novel: retell it as a vivid, easy story, but keep every event, person, number and the author's own reasoning and judgments — do not invent scenes or dialogue the source does not have. When an old place name is obscure, add a few words saying where it is today. Use the usual Korean spellings of Greek and Roman names (e.g. 테세우스, 로물루스, " +
+      "리쿠르고스, 솔론, 페리클레스, 알키비아데스, 알렉산드로스, 카이사르, 폼페이우스, 키케로, 데모스테네스, 안토니우스, 브루투스, " +
+      "술라(Sylla), 마리우스, 카토) and keep each one the same every time. " + CONTINUE,
+  },
+  ...(
+    [
+      ["herodotus-1", "헤로도토스 역사 (상)", "The Histories of Herodotus, Volume 1", 2707,
+        "\"역사의 아버지\" 헤로도토스. 리디아의 크로이소스, 페르시아의 키루스, 이집트의 신비와 스키타이 초원까지 — 1~4권.",
+        "The father of history: Croesus of Lydia, Cyrus of Persia, the wonders of Egypt and the Scythian steppe — Books I–IV."],
+      ["herodotus-2", "헤로도토스 역사 (하)", "The Histories of Herodotus, Volume 2", 2456,
+        "이오니아 반란에서 마라톤, 테르모필레, 살라미스, 플라타이아까지. 페르시아 대군과 그리스의 전쟁 — 5~9권.",
+        "From the Ionian revolt to Marathon, Thermopylae, Salamis and Plataea — Persia's great invasion of Greece, Books V–IX."],
+    ] as const
+  ).map(([slug, title, titleEn, gutenbergId, description, descriptionEn]) => ({
+    slug,
+    title,
+    titleEn,
+    author: "헤로도토스 (Herodotus)",
+    gutenbergId,
+    coverColor: "#7a4a2a",
+    description,
+    descriptionEn,
+    chapterHeading: /^BOOK [IVX]+\. THE \w+ BOOK OF THE HISTORIES, CALLED \w+$/,
+    skipHeading: /^NOTES TO (BOOK|PREFACE)/,
+    estimatedRows: { "herodotus-1": 44, "herodotus-2": 42 }[slug],
+    guidance:
+      "This is Herodotus' Histories, from G. C. Macaulay's English translation of the Greek. The numbers at the start of " +
+      "paragraphs are section numbers — drop them. Herodotus loves digressions, wonders and stories he heard ('the Persians " +
+      "say…'); keep them, and keep his voice when he says he does not believe a tale. It is history, not a novel: retell it as a vivid, easy story, but keep every event, person, number and the author's own reasoning and judgments — do not invent scenes or dialogue the source does not have. When an old place name is obscure, add a few words saying where it is today. Use the usual Korean spellings " +
+      "(e.g. 크로이소스, 키루스, 캄비세스, 다리우스, 크세르크세스, 레오니다스, 테미스토클레스, 밀티아데스, 아테네, 스파르타, " +
+      "페르시아, 리디아, 마라톤, 테르모필레, 살라미스) and keep each one the same every time. " + CONTINUE,
+  })),
+  {
+    slug: "ten-days",
+    title: "세계를 뒤흔든 10일",
+    titleEn: "Ten Days That Shook the World",
+    author: "존 리드 (John Reed)",
+    gutenbergId: 3076,
+    coverColor: "#8a1f1f",
+    description: "1917년 페트로그라드. 미국 기자 존 리드가 현장에서 본 10월 혁명 — 레닌의 볼셰비키가 권력을 잡은 열흘.",
+    descriptionEn: "Petrograd, 1917: American reporter John Reed's eyewitness account of the ten days the Bolsheviks took power.",
+    chapterHeading: /^Chapter [IVX]+$/,
+    endAt: /^APPENDIX TO CHAPTER I$/,
+    estimatedRows: 33,
+    guidance:
+      "This is John Reed's Ten Days That Shook the World (1919), a reporter's first-hand account of the October Revolution. " +
+      "Keep his eyewitness, street-level voice and the speeches, posters and decrees he quotes, explained in plain words. " +
+      "Briefly explain the parties and bodies (Bolsheviks, Mensheviks, Socialist Revolutionaries, the Soviets, the " +
+      "Provisional Government, the Military Revolutionary Committee) the first time they matter. It is history, not a novel: retell it as a vivid, easy story, but keep every event, person, number and the author's own reasoning and judgments — do not invent scenes or dialogue the source does not have. When an old place name is obscure, add a few words saying where it is today. Use these spellings " +
+      "every time — Korean: 레닌, 트로츠키, 케렌스키, 스몰니, 겨울궁전, 페트로그라드, 볼셰비키, 멘셰비키, 사회혁명당, 소비에트; " +
+      "English: Lenin, Trotsky, Kerensky, Smolny, the Winter Palace, Petrograd, Bolsheviki, Mensheviki, Socialist " +
+      "Revolutionaries, Soviets. " + CONTINUE,
+  },
+  {
+    slug: "french-revolution",
+    title: "프랑스 혁명사",
+    titleEn: "The French Revolution: A History",
+    author: "토머스 칼라일 (Thomas Carlyle)",
+    gutenbergId: 1301,
+    coverColor: "#1f2a5c",
+    description: "루이 15세의 죽음에서 바스티유, 국왕의 처형, 공포정치, 로베스피에르의 몰락까지. 칼라일이 그린 혁명의 대서사.",
+    descriptionEn: "From the death of Louis XV through the Bastille, the King's execution and the Terror to Robespierre's fall.",
+    chapterHeading: /^Chapter \d\.\d\.[IVXL]+\.$/,
+    partHeading: /^BOOK \d\.[IVX]+\.$/,
+    // The contents list ends with the same "INDEX." line, so drop from it instead of ending there.
+    skipHeading: /^INDEX\.$/,
+    estimatedRows: 115,
+    guidance:
+      "This is Thomas Carlyle's The French Revolution: A History (1837). Carlyle writes in a dramatic, allusive, often " +
+      "ironic style full of nicknames and references — keep the drama and his judgments, but say plainly who and what he " +
+      "means. It is history, not a novel: retell it as a vivid, easy story, but keep every event, person, number and the author's own reasoning and judgments — do not invent scenes or dialogue the source does not have. When an old place name is obscure, add a few words saying where it is today. Use these spellings every time — Korean: 루이 16세, 마리 앙투아네트, 미라보, 라파예트, 당통, 마라, " +
+      "로베스피에르, 바스티유, 국민의회, 자코뱅, 지롱드; English: Louis XVI, Marie-Antoinette, Mirabeau, Lafayette, Danton, " +
+      "Marat, Robespierre, the Bastille, the National Assembly, the Jacobins, the Girondins. " + CONTINUE,
+  },
+  {
+    slug: "anabasis",
+    title: "아나바시스",
+    titleEn: "Anabasis",
+    author: "크세노폰 (Xenophon)",
+    gutenbergId: 1170,
+    coverColor: "#6a5a2a",
+    description: "페르시아 왕자의 반란에 고용된 그리스 용병 1만 명. 지휘관을 잃고 적지 한복판에 남은 그들이 고향 바다까지 걸어서 돌아간다.",
+    descriptionEn: "Ten thousand Greek mercenaries, stranded deep in Persia when their generals are killed, march home to the sea.",
+    chapterHeading: /^[IVX]+\.?$/,
+    partHeading: /^BOOK [IVX]+$/,
+    estimatedRows: 37,
+    guidance:
+      "This is Xenophon's Anabasis, from H. G. Dakyns' English translation of the Greek. Xenophon was one of the generals " +
+      "and tells it in the third person. Drop the translator's numbered footnotes and the margin section numbers, but use " +
+      "what a note explains if it helps the story. It is history, not a novel: retell it as a vivid, easy story, but keep every event, person, number and the author's own reasoning and judgments — do not invent scenes or dialogue the source does not have. When an old place name is obscure, add a few words saying where it is today. Use these spellings every time — Korean: 크세노폰, 키루스(소 키루스), " +
+      "아르타크세르크세스, 클레아르코스, 프록세노스, 메논, 티사페르네스, 케이리소포스, 1만 명; English: Xenophon, Cyrus (the " +
+      "Younger), Artaxerxes, Clearchus, Proxenus, Menon, Tissaphernes, Cheirisophus, the Ten Thousand. " + CONTINUE,
+  },
+  {
+    slug: "twelve-caesars",
+    title: "열두 명의 카이사르",
+    titleEn: "The Lives of the Twelve Caesars",
+    author: "수에토니우스 (Suetonius)",
+    gutenbergId: 6400,
+    coverColor: "#5c1f4a",
+    description: "율리우스 카이사르부터 도미티아누스까지 로마의 첫 황제 열두 명. 업적과 함께 그들의 버릇, 소문, 스캔들까지 낱낱이.",
+    descriptionEn: "Julius Caesar to Domitian — Rome's first twelve rulers, their deeds and their habits, rumours and scandals.",
+    chapterHeading: /^(CAIUS JULIUS CASAR|D\. OCTAVIUS CAESAR AUGUSTUS|TIBERIUS NERO CAESAR|CAIUS CAESAR CALIGULA|TIBERIUS CLAUDIUS DRUSUS CAESAR|NERO CLAUDIUS CAESAR|SERGIUS SULPICIUS GALBA|A\. +SALVIUS OTHO|AULUS VITELLIUS|T\. FLAVIUS VESPASIANUS AUGUSTUS|TITUS FLAVIUS VESPASIANUS AUGUSTUS|TITUS FLAVIUS DOMITIANUS)\.( \[\d+\])?$/,
+    endAt: /^LIVES OF EMINENT GRAMMARIANS$/,
+    estimatedRows: 58,
+    guidance:
+      "This is Suetonius' The Lives of the Twelve Caesars, from Alexander Thomson's English translation revised by T. " +
+      "Forester. Drop the bracketed note numbers, page numbers in parentheses and the Roman section numerals. Suetonius " +
+      "reports gossip and scandal frankly — keep it, matter-of-fact, without adding relish. It is history, not a novel: retell it as a vivid, easy story, but keep every event, person, number and the author's own reasoning and judgments — do not invent scenes or dialogue the source does not have. When an old place name is obscure, add a few words saying where it is today. Use these spellings every " +
+      "time — Korean: 율리우스 카이사르, 아우구스투스, 티베리우스, 칼리굴라, 클라우디우스, 네로, 갈바, 오토, 비텔리우스, " +
+      "베스파시아누스, 티투스, 도미티아누스; English: Julius Caesar, Augustus, Tiberius, Caligula, Claudius, Nero, Galba, " +
+      "Otho, Vitellius, Vespasian, Titus, Domitian. " + CONTINUE,
   },
 ];
 
