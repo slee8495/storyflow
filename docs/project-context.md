@@ -618,10 +618,20 @@ Operator's ask: "시계 앱 만들자 … 시계로도 오디오 언제든 어�
   Now every play control on the watch goes through `PhoneLink.command`: in phone mode it stops any
   watch playback and sends to the phone; the watch plays only after "⌚️ 워치로 듣기" (which first
   pauses the phone). Paired-simulator `-autoplay -pauseResume` still stays on the phone.
+- **Build 0.1 (11), 2026-11-13 — playback diagnostics.** Operator: after a long pause, play from the
+  watch gave no sound at all; Vercel request logs showed the phone made no requests at that point.
+  The phone's system log needs root on the Mac (`log collect --device-udid` → "Must be root"), so
+  both apps now post short events to `POST /api/log` (`StoryflowAPI.log`): watch button and where it
+  went, send failures, what the phone received and whether it was in the background, audio session
+  activation, AVPlayer status/waiting reason, item failures. Read them with
+  `vercel logs --cwd <main checkout> --since 1h --json` and keep `requestPath == "/api/log"` (each
+  line is `{"tag":"storyflow-log",...}`). Likely cause being guarded against: iOS refusing to start
+  a non-mixable session for an app woken in the background — the phone now retries with
+  `.mixWithOthers` and switches back once sound starts. Unconfirmed until the next real failure.
 - **Build 0.1 (6)** (iPhone app + watch app) archived 2026-11-13. The first upload was blocked by
   Apple ("PLA Update available" — the account holder had to accept the updated Program License
   Agreement); after the operator accepted it, it uploaded the same evening. The tower's renewal
-  archive (`~/.slstudio/testflight/archives/com.slstudio.storyflow.xcarchive`) is now build 10
+  archive (`~/.slstudio/testflight/archives/com.slstudio.storyflow.xcarchive`) is now build 11
   (build 5 kept beside it as `-build5`). The archive is also at
-  `~/.slstudio/storyflow-build/Storyflow-build10.xcarchive` (latest); upload with
-  `xcodebuild -exportArchive -archivePath ~/.slstudio/storyflow-build/Storyflow-build10.xcarchive -exportOptionsPlist ~/.slstudio/storyflow-build/ExportOptions.plist -exportPath ~/.slstudio/storyflow-build/export -allowProvisioningUpdates`.
+  `~/.slstudio/storyflow-build/Storyflow-build11.xcarchive` (latest); upload with
+  `xcodebuild -exportArchive -archivePath ~/.slstudio/storyflow-build/Storyflow-build11.xcarchive -exportOptionsPlist ~/.slstudio/storyflow-build/ExportOptions.plist -exportPath ~/.slstudio/storyflow-build/export -allowProvisioningUpdates`.
