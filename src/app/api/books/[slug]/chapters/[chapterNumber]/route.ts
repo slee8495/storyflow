@@ -47,13 +47,16 @@ export async function GET(
     .orderBy(asc(chapterIllustrations.position));
 
   const [nextRow] = await db
-    .select({ id: chapters.id })
+    .select({ id: chapters.id, generatedAt: chapters.generatedAt })
     .from(chapters)
     .where(and(eq(chapters.bookId, book.id), eq(chapters.chapterNumber, chapterNum + 1)))
     .limit(1);
 
   const hasPrev = chapterNum > 1;
   const hasNext = Boolean(nextRow);
+  // Narration only carries on into the next chapter by itself once it's translated — otherwise
+  // opening it would start a slow on-demand generation in the middle of listening.
+  const nextReady = Boolean(nextRow?.generatedAt);
 
   let resume: { chunkIndex: number; lang: "ko" | "en" } | null = null;
   let marks: SavedMark[] = [];
@@ -81,6 +84,7 @@ export async function GET(
     marks,
     hasPrev,
     hasNext,
+    nextReady,
     resume,
   });
 }

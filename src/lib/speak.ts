@@ -362,32 +362,40 @@ function audioBufferToWavBlob(buffer: AudioBuffer): Blob {
   return new Blob([arrayBuffer], { type: "audio/wav" });
 }
 
-export async function speak(
-  text: string,
-  opts: {
-    onPlaybackStart?: () => void;
-    onChunkStart?: (index: number) => void;
-    startIndex?: number;
-    // Shown on the lock screen / CarPlay when the iPhone app plays natively.
-    title?: string;
-    // Paused or resumed from outside the page (lock screen, CarPlay, a call ending), so the UI can follow.
-    onExternalPause?: () => void;
-    onExternalResume?: () => void;
-  } = {},
-) {
-  if (!text.trim()) return;
-  stopSpeaking(); // also bumps playToken, so capture `token` only after this
-  const token = playToken;
+// A passage's narration, fetched, decoded and stitched into one WAV, ready to play. Built by
+// prepareSpeech() — either right before playing, or ahead of time for the next chapter while the
+// current one is still playing (see PlaybackProvider), so moving on doesn't wait for dozens of
+// chunk downloads and a full render.
+export type PreparedSpeech =
+  | {
+      kind: "audio";
+      blob: Blob;
+      // Start time (seconds) of each included chunk, paired with its real index into the text's
+      // chunks (failed chunks are dropped, so positions in this list aren't chunk indices).
+      offsets: { start: number; index: number }[];
+    }
+  // Every chunk failed (offline, outage): read these words with the browser's own voice instead.
+  | { kind: "browser"; text: string; startIndex: number };
 
+// `intro` is a short line spoken before the passage (e.g. "82장." when playback moves on to the
+// next chapter by itself). It is rendered into the same file ahead of the first chunk and counts
+// as part of that chunk for highlighting, so every chunk index stays the text's own.
+export async function prepareSpeech(
+  text: string,
+  { startIndex: requestedStart = 0, intro }: { startIndex?: number; intro?: string } = {},
+): Promise<PreparedSpeech | null> {
+  if (!text.trim()) return null;
   const chunks = splitIntoChunks(text);
-  const startIndex = Math.min(Math.max(opts.startIndex ?? 0, 0), Math.max(chunks.length - 1, 0));
+  const startIndex = Math.min(Math.max(requestedStart, 0), Math.max(chunks.length - 1, 0));
   const requested = chunks.slice(startIndex);
 
   // Chunk boundaries/indices below (offsets, activeChunkIndex, highlighting) all stay keyed off
   // the ORIGINAL `chunks`/`requested` text, so stripping markers only for the TTS request doesn't
   // shift anything the UI depends on for click-to-seek or highlight sync.
-  const buffers = await Promise.all(requested.map((chunk) => fetchAudioBuffer(stripVerseMarkers(chunk))));
-  if (token !== playToken) return;
+  const [introBuffer, ...buffers] = await Promise.all([
+    intro ? fetchAudioBuffer(intro) : Promise.resolve(null),
+    ...requested.map((chunk) => fetchAudioBuffer(stripVerseMarkers(chunk))),
+  ]);
 
   // Chunks that failed to generate are quietly skipped from the combined file rather than
   // derailing the whole passage into the browser voice over one flaky request — only a total
@@ -396,17 +404,13 @@ export async function speak(
   buffers.forEach((buffer, i) => {
     if (buffer) ok.push({ buffer, index: startIndex + i });
   });
+  const browserFallback = { kind: "browser" as const, text: requested.join(" "), startIndex };
+  if (ok.length === 0) return browserFallback;
 
-  if (ok.length === 0) {
-    speakWithBrowserVoice(requested.join(" "), () => {
-      opts.onChunkStart?.(startIndex);
-      opts.onPlaybackStart?.();
-    });
-    return;
-  }
-
-  const decoded = await Promise.all(ok.map((c) => decodeChunk(c.buffer)));
-  if (token !== playToken) return;
+  const [introDecoded, ...decoded] = await Promise.all([
+    introBuffer ? decodeChunk(introBuffer) : Promise.resolve(null),
+    ...ok.map((c) => decodeChunk(c.buffer)),
+  ]);
 
   // A chunk that fails to decode (corrupt response, unsupported edge case) is dropped the same
   // way a chunk that failed to fetch already was above.
@@ -414,21 +418,11 @@ export async function speak(
   decoded.forEach((buffer, i) => {
     if (buffer) decodedOk.push({ buffer, index: ok[i].index });
   });
-
-  if (decodedOk.length === 0) {
-    speakWithBrowserVoice(requested.join(" "), () => {
-      opts.onChunkStart?.(startIndex);
-      opts.onPlaybackStart?.();
-    });
-    return;
-  }
+  if (decodedOk.length === 0) return browserFallback;
+  // The intro plays as part of the first chunk: same index, so highlighting starts there.
+  if (introDecoded) decodedOk.unshift({ buffer: introDecoded, index: decodedOk[0].index });
 
   const { buffer: combined, chunkDurations } = await renderCombinedBuffer(decodedOk.map((c) => c.buffer));
-  if (token !== playToken) return;
-  const blob = audioBufferToWavBlob(combined);
-  const url = URL.createObjectURL(blob);
-  if (activeObjectUrl) URL.revokeObjectURL(activeObjectUrl);
-  activeObjectUrl = url;
 
   // Cumulative start time (seconds) for each included chunk, paired with its real index into
   // `chunks` (not its position in `ok`/`decodedOk`, since failed chunks were dropped). Durations
@@ -441,6 +435,46 @@ export async function speak(
     cursor += chunkDurations[i];
     return { start, index: c.index };
   });
+  return { kind: "audio", blob: audioBufferToWavBlob(combined), offsets };
+}
+
+// Resolves "ended" when the passage played to its end (the cue to move on to the next chapter),
+// or "stopped" when it was stopped, replaced by another speak() call, or failed.
+export async function speak(
+  text: string,
+  opts: {
+    onPlaybackStart?: () => void;
+    onChunkStart?: (index: number) => void;
+    startIndex?: number;
+    intro?: string;
+    // Already built by prepareSpeech() for this same text/startIndex/intro — skips the wait.
+    prepared?: PreparedSpeech | null;
+    // Shown on the lock screen / CarPlay when the iPhone app plays natively.
+    title?: string;
+    // Paused or resumed from outside the page (lock screen, CarPlay, a call ending), so the UI can follow.
+    onExternalPause?: () => void;
+    onExternalResume?: () => void;
+  } = {},
+): Promise<"ended" | "stopped"> {
+  if (!text.trim()) return "stopped";
+  stopSpeaking(); // also bumps playToken, so capture `token` only after this
+  const token = playToken;
+
+  const prepared = opts.prepared ?? (await prepareSpeech(text, { startIndex: opts.startIndex, intro: opts.intro }));
+  if (token !== playToken || !prepared) return "stopped";
+
+  if (prepared.kind === "browser") {
+    speakWithBrowserVoice(prepared.text, () => {
+      opts.onChunkStart?.(prepared.startIndex);
+      opts.onPlaybackStart?.();
+    });
+    return "stopped";
+  }
+
+  const { blob, offsets } = prepared;
+  const url = URL.createObjectURL(blob);
+  if (activeObjectUrl) URL.revokeObjectURL(activeObjectUrl);
+  activeObjectUrl = url;
 
   const audio = nativeAudioAvailable()
     ? currentAudio instanceof NativeAudio
@@ -451,8 +485,8 @@ export async function speak(
       : new Audio();
   currentAudio = audio;
 
-  await new Promise<void>((resolve) => {
-    currentStopResolve = resolve;
+  return new Promise<"ended" | "stopped">((resolve) => {
+    currentStopResolve = () => resolve("stopped");
 
     let announced = false;
     const onPlaying = () => {
@@ -474,9 +508,9 @@ export async function speak(
       opts.onChunkStart?.(current);
     };
     const onPause = () => opts.onExternalPause?.();
-    const onEnded = () => finish();
-    const onError = () => finish();
-    function finish() {
+    const onEnded = () => finish("ended");
+    const onError = () => finish("stopped");
+    function finish(how: "ended" | "stopped") {
       audio.removeEventListener("playing", onPlaying);
       audio.removeEventListener("pause", onPause);
       audio.removeEventListener("timeupdate", onTimeUpdate);
@@ -484,9 +518,9 @@ export async function speak(
       audio.removeEventListener("error", onError);
       activeCleanup = null;
       currentStopResolve = null;
-      resolve();
+      resolve(how);
     }
-    activeCleanup = finish;
+    activeCleanup = () => finish("stopped");
 
     audio.addEventListener("playing", onPlaying);
     audio.addEventListener("pause", onPause);
@@ -495,10 +529,10 @@ export async function speak(
     audio.addEventListener("error", onError, { once: true });
 
     if (audio instanceof NativeAudio) {
-      audio.load(blob, opts.title ?? "Storyflow").catch(() => finish());
+      audio.load(blob, opts.title ?? "Storyflow").catch(() => finish("stopped"));
     } else {
       audio.src = url;
-      audio.play().catch(() => finish());
+      audio.play().catch(() => finish("stopped"));
     }
   });
 }

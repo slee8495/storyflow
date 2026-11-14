@@ -7,6 +7,7 @@ import { getImageProps } from "next/image";
 import { splitIntoChunks } from "@/lib/speak";
 import { pruneReadAudio } from "@/lib/offline";
 import { adaptationNote } from "@/lib/adaptationNotes";
+import { chapterSourceId as sourceId, chapterTrack } from "@/lib/chapterTrack";
 import { ReaderGate, useReader } from "../../../ReaderProvider";
 import { FinishControl } from "../../../FinishControl";
 import { ChevronIcon } from "../../../ChevronIcon";
@@ -68,7 +69,6 @@ function scrollToProgress(chunks: string[], progress: number) {
     remaining -= chunks[i].length;
   }
 }
-const sourceId = (slug: string, chapterNumber: number) => `chapter-${slug}-${chapterNumber}`;
 
 type ChapterData = {
   chapterNumber: number;
@@ -109,6 +109,7 @@ type ChapterResponse = {
   marks: SavedMark[];
   hasPrev: boolean;
   hasNext: boolean;
+  nextReady: boolean;
   resume: ResumePosition | null;
 };
 
@@ -254,7 +255,7 @@ export default function ChapterPage() {
   const chapterNumber = Number(chapterParam);
   const router = useRouter();
   const { reader, loading: readerLoading } = useReader();
-  const { sourceId: playingSourceId, speakState, activeChunkIndex, playText, pause, resume, stop } = usePlayback();
+  const { sourceId: playingSourceId, speakState, activeChunkIndex, playTrack, pause, resume, stop } = usePlayback();
   const { t } = useUiLanguage();
 
   const [data, setData] = useState<ChapterResponse | null>(null);
@@ -353,18 +354,18 @@ export default function ChapterPage() {
   const thisSourceId = sourceId(slug, chapterNumber);
   const isSpeakingThis = playingSourceId === thisSourceId;
 
-  // Saves the sentence position as playback (TTS or click-to-seek, both drive activeChunkIndex)
-  // advances through THIS chapter — the whole point being able to pick back up mid-chapter later.
+  // The sentence position is saved by the chapter's narration track itself (src/lib/chapterTrack.ts)
+  // as playback advances — so it keeps being saved after narration moves on to later chapters.
+
+  // When narration moves on to the next chapter by itself while this page is open, follow it there.
+  const wasSpeakingThis = useRef(false);
   useEffect(() => {
-    if (!reader || !data || !isSpeakingThis || activeChunkIndex === null) return;
-    fetch("/api/bookmarks", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ readerId: reader.id, bookId: data.book.id, chapterNumber, chunkIndex: activeChunkIndex, lang }),
-    }).catch(() => {
-      // best-effort
-    });
-  }, [reader, data, chapterNumber, isSpeakingThis, activeChunkIndex, lang]);
+    if (isSpeakingThis) wasSpeakingThis.current = true;
+    else if (wasSpeakingThis.current && playingSourceId === sourceId(slug, chapterNumber + 1)) {
+      wasSpeakingThis.current = false;
+      router.push(`/book/${slug}/${chapterNumber + 1}`);
+    } else wasSpeakingThis.current = false;
+  }, [isSpeakingThis, playingSourceId, router, slug, chapterNumber]);
 
   const chunks = useMemo(() => {
     if (!data) return [];
@@ -450,11 +451,9 @@ export default function ChapterPage() {
   }
 
   function speak(startIndex?: number) {
-    if (!data) return;
-    const text = lang === "en" ? data.chapter.storyEn : data.chapter.storyKo;
-    const title = lang === "en" ? data.chapter.titleEn : data.chapter.titleKo;
-    if (!text?.trim()) return;
-    playText(thisSourceId, title ?? `Ch. ${chapterNumber}`, text, startIndex);
+    if (!data || !reader) return;
+    const track = chapterTrack(data, { lang, readerId: reader.id, startIndex });
+    if (track) playTrack(track);
   }
 
   // Keyboard: ← / → turn to the previous / next chapter (ignored while typing or with modifiers).
