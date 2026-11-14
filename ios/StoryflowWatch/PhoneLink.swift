@@ -62,6 +62,7 @@ final class PhoneLink: NSObject, ObservableObject, WCSessionDelegate {
     /// 재생 버튼은 전부 여기로: 폰 모드면 폰으로, "워치로 듣기"를 골랐을 때만 워치 플레이어로.
     func command(_ cmd: String, slug: String? = nil) {
         guard let narrator else { return }
+        StoryflowAPI.log("button", "\(cmd) → \(onPhone ? "phone" : "watch")")
         if onPhone {
             // 워치 플레이어가 어쩌다 틀고 있었다면 끈다 — 소리는 한 곳에서만.
             if narrator.hasQueue { narrator.stop() }
@@ -105,8 +106,9 @@ final class PhoneLink: NSObject, ObservableObject, WCSessionDelegate {
                 self.failed = false
                 if let state = reply["state"] as? [String: Any] { self.state = state }
             }
-        }, errorHandler: { _ in
+        }, errorHandler: { error in
             Task { @MainActor in
+                StoryflowAPI.log("send failed", "\(message["cmd"] ?? "") retries left \(retries): \(error)")
                 guard retries > 0 else {
                     self.failed = true
                     return

@@ -1,4 +1,5 @@
 import Combine
+import UIKit
 import WatchConnectivity
 import WebKit
 
@@ -39,6 +40,9 @@ final class PhoneRemote: NSObject, WCSessionDelegate {
     }
 
     private func handle(_ message: [String: Any]) -> [String: Any] {
+        if let cmd = message["cmd"] as? String, cmd != "state" {
+            StoryflowAPI.log("from watch", "\(cmd) (app \(UIApplication.shared.applicationState == .background ? "in background" : "in foreground"))")
+        }
         if let readerId = message["readerId"] as? Int, narrator.readerId != readerId {
             narrator.readerId = readerId
         }

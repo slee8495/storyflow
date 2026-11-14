@@ -73,6 +73,23 @@ enum StoryflowAPI {
         try await get("api/books/\(slug)/chapters/\(number)", ["readerId": String(readerId)])
     }
 
+    /// 재생 진단 한 줄을 서버 로그로 (`vercel logs --query storyflow-log --expand` 로 본다).
+    /// 폰 시스템 로그는 맥에서 root 가 있어야 볼 수 있어서, 워치·폰 재생 문제를 쫓으려고 넣었다.
+    static func log(_ event: String, _ detail: String = "") {
+        #if os(watchOS)
+        let device = "watch"
+        #else
+        let device = "phone"
+        #endif
+        var request = URLRequest(url: base.appending(path: "api/log"))
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try? JSONSerialization.data(withJSONObject: [
+            "device": device, "event": event, "detail": detail,
+        ])
+        URLSession.shared.dataTask(with: request).resume()
+    }
+
     /// 이어 듣기 위치 저장 — 웹의 `src/lib/chapterTrack.ts` 와 같은 요청.
     static func saveBookmark(readerId: Int, bookId: Int, chapterNumber: Int, chunkIndex: Int, lang: String) {
         var request = URLRequest(url: base.appending(path: "api/bookmarks"))

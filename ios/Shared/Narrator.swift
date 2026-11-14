@@ -61,6 +61,15 @@ final class Narrator: ObservableObject {
                 guard let self else { return }
                 self.isPlaying = status != .paused
                 self.updateNowPlaying()
+                if status == .playing { self.didStartPlaying() }
+                let reason = self.player.reasonForWaitingToPlay?.rawValue ?? ""
+                StoryflowAPI.log("status", "\(status == .playing ? "playing" : status == .paused ? "paused" : "waiting") \(reason)")
+            }
+            .store(in: &observers)
+        NotificationCenter.default.publisher(for: AVPlayerItem.failedToPlayToEndTimeNotification)
+            .sink { note in
+                let error = note.userInfo?[AVPlayerItemFailedToPlayToEndTimeErrorKey] as? Error
+                StoryflowAPI.log("item failed", error.map { "\($0)" } ?? "")
             }
             .store(in: &observers)
         NotificationCenter.default.publisher(for: AVAudioSession.routeChangeNotification)
@@ -110,6 +119,7 @@ final class Narrator: ObservableObject {
     }
 
     func play() {
+        StoryflowAPI.log("play", hasQueue ? "resume" : "start from bookmark")
         wantsToPlay = true
         if player.currentItem != nil {
             Task {
@@ -125,12 +135,14 @@ final class Narrator: ObservableObject {
     }
 
     func pause() {
+        StoryflowAPI.log("pause")
         wantsToPlay = false
         player.pause()
     }
 
     /// 다른 플레이어(폰 앱의 웹 낭독)가 소리를 넘겨받았을 때.
     func stop() {
+        StoryflowAPI.log("stop", hasQueue ? "had a queue" : "")
         wantsToPlay = false
         stopQueue()
         chapterNumber = nil
@@ -277,17 +289,56 @@ final class Narrator: ObservableObject {
         let ok = await withCheckedContinuation { continuation in
             session.activate(options: []) { ok, _ in continuation.resume(returning: ok) }
         }
+        StoryflowAPI.log("session", ok ? "activated" : "activation failed")
         #else
         // 폰은 매번 다시 켠다 — 멈춘 채 뒤에 오래 있던 뒤(워치가 깨운 경우)에도 확실히 소리가 나게.
-        let ok = (try? session.setCategory(.playback, mode: .spokenAudio)) != nil
-            && (try? session.setActive(true)) != nil
+        var ok = true
+        do {
+            try session.setCategory(.playback, mode: .spokenAudio)
+            try session.setActive(true)
+            StoryflowAPI.log("session", "activated")
+        } catch {
+            // 오래 멈춰 있다 워치가 앱을 뒤에서 깨우면, iOS 가 뒤에 있는 앱이 소리를 새로 켜는 걸 막을 수
+            // 있다. 다른 소리와 섞일 수 있는(mixWithOthers) 세션은 뒤에서도 켜지므로 그걸로 틀고, 소리가
+            // 나기 시작하면 원래대로 되돌린다 (didStartPlaying).
+            StoryflowAPI.log("session", "activation failed: \(error)")
+            do {
+                try session.setCategory(.playback, mode: .spokenAudio, options: [.mixWithOthers])
+                try session.setActive(true)
+                startedMixable = true
+                StoryflowAPI.log("session", "activated as mixable")
+            } catch {
+                StoryflowAPI.log("session", "mixable activation failed: \(error)")
+                ok = false
+            }
+        }
         #endif
         sessionActive = ok
         if !ok {
             wantsToPlay = false
+            #if os(watchOS)
             errorText = "블루투스 헤드폰을 연결해 주세요"
+            #else
+            errorText = "폰에서 소리를 켤 수 없어요"
+            #endif
         }
         return ok
+    }
+
+    /// 뒤에서 켜느라 섞이는 세션으로 시작했다면, 소리가 나기 시작한 뒤 평소 세션(잠금화면 컨트롤이
+    /// 뜨는)으로 돌린다.
+    private var startedMixable = false
+    private func didStartPlaying() {
+        #if os(iOS)
+        guard startedMixable else { return }
+        startedMixable = false
+        do {
+            try AVAudioSession.sharedInstance().setCategory(.playback, mode: .spokenAudio)
+            StoryflowAPI.log("session", "back to non-mixable")
+        } catch {
+            StoryflowAPI.log("session", "un-mix failed: \(error)")
+        }
+        #endif
     }
 
     /// 헤드폰이 끊기면 (배터리, 벗어서 케이스에 넣음) 멈춘다 — 다시 누르면 세션부터 다시 켠다.
