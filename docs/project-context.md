@@ -581,11 +581,18 @@ Operator's ask: "시계 앱 만들자 … 시계로도 오디오 언제든 어�
   big play/pause button, book list, next-chapter button, language picker. Saves the position on
   every chunk and appends the next chapter (with the spoken intro) when four clips are left.
   Verified in the watchOS 26.5 simulator with the `devtest` reader: plays, saves the position,
-  moves from chapter 1 to 2 by itself. Not yet tried on a real watch.
+  moves from chapter 1 to 2 by itself.
+- **Build 0.1 (7), 2026-11-13:** on the operator's real watch the narration came out of the watch
+  speaker, not the paired Bluetooth headphones. Build 6 started playback even when the long-form
+  audio session didn't come up (and cleared the error text), and watchOS then played through the
+  speaker. Now it plays only once the session is active (mode `.default`, policy `.longFormAudio`,
+  as in Apple's sample — was `.spokenAudio`); otherwise it shows "블루투스 헤드폰을 연결해 주세요".
+  It also pauses when the headphones disconnect. Not reproducible in the simulator (no Bluetooth
+  route), so verified by build only.
 - **Build 0.1 (6)** (iPhone app + watch app) archived 2026-11-13. The first upload was blocked by
   Apple ("PLA Update available" — the account holder had to accept the updated Program License
   Agreement); after the operator accepted it, it uploaded the same evening. The tower's renewal
-  archive (`~/.slstudio/testflight/archives/com.slstudio.storyflow.xcarchive`) is now build 6
+  archive (`~/.slstudio/testflight/archives/com.slstudio.storyflow.xcarchive`) is now build 7
   (build 5 kept beside it as `-build5`). The archive is also at
-  `~/.slstudio/storyflow-build/Storyflow-build6.xcarchive`; it was uploaded with
-  `xcodebuild -exportArchive -archivePath ~/.slstudio/storyflow-build/Storyflow-build6.xcarchive -exportOptionsPlist ~/.slstudio/storyflow-build/ExportOptions.plist -exportPath ~/.slstudio/storyflow-build/export -allowProvisioningUpdates`.
+  `~/.slstudio/storyflow-build/Storyflow-build7.xcarchive` (latest); upload with
+  `xcodebuild -exportArchive -archivePath ~/.slstudio/storyflow-build/Storyflow-build7.xcarchive -exportOptionsPlist ~/.slstudio/storyflow-build/ExportOptions.plist -exportPath ~/.slstudio/storyflow-build/export -allowProvisioningUpdates`.

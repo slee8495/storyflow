@@ -65,6 +65,10 @@ final class Narrator: ObservableObject {
             Task { @MainActor in self?.pause() }
             return .success
         }
+        NotificationCenter.default.publisher(for: AVAudioSession.routeChangeNotification)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] note in self?.routeChanged(note) }
+            .store(in: &observers)
         commands.togglePlayPauseCommand.addTarget { [weak self] _ in
             Task { @MainActor in self?.toggle() }
             return .success
@@ -101,8 +105,7 @@ final class Narrator: ObservableObject {
         wantsToPlay = true
         if player.currentItem != nil {
             Task {
-                await activateSession()
-                player.play()
+                if await activateSession() { player.play() }
             }
         } else if let current {
             start(current)
@@ -131,9 +134,8 @@ final class Narrator: ObservableObject {
                     errorText = "이 챕터는 아직 번역 중이에요"
                     return
                 }
-                await activateSession()
-                player.play()
                 errorText = nil
+                if await activateSession() { player.play() }
             } catch {
                 errorText = "챕터를 못 불러왔어요"
             }
@@ -156,8 +158,7 @@ final class Narrator: ObservableObject {
                 errorText = "다음 챕터가 아직 없어요"
                 return
             }
-            await activateSession()
-            player.play()
+            if await activateSession() { player.play() }
         }
     }
 
@@ -233,22 +234,38 @@ final class Narrator: ObservableObject {
 
     // MARK: - 오디오 세션 · 잠금화면
 
-    /// 워치는 긴 오디오를 블루투스 이어폰(에어팟)으로만 튼다 — 연결이 안 돼 있으면 워치가 고르는
-    /// 화면을 띄운다.
-    private func activateSession() async {
-        guard !sessionActive else { return }
+    /// 워치는 긴 오디오를 블루투스 이어폰·헤드폰으로만 튼다 — 연결이 안 돼 있으면 워치가 기기를
+    /// 고르는 화면을 띄운다. 세션이 켜지지 않으면 틀지 않는다: 그대로 틀면 워치 스피커로 나온다
+    /// (2026-11-13 실제 워치에서 그랬다 — 그때는 mode 를 .spokenAudio 로 줬고, 실패해도 그냥 틀었다).
+    /// 애플 예제대로 mode 는 .default.
+    private func activateSession() async -> Bool {
+        if sessionActive { return true }
         let session = AVAudioSession.sharedInstance()
         do {
-            try session.setCategory(.playback, mode: .spokenAudio, policy: .longFormAudio)
+            try session.setCategory(.playback, mode: .default, policy: .longFormAudio, options: [])
         } catch {
             errorText = "오디오를 켤 수 없어요"
-            return
+            return false
         }
         let ok = await withCheckedContinuation { continuation in
             session.activate(options: []) { ok, _ in continuation.resume(returning: ok) }
         }
         sessionActive = ok
-        if !ok { errorText = "에어팟을 연결해 주세요" }
+        if !ok {
+            wantsToPlay = false
+            errorText = "블루투스 헤드폰을 연결해 주세요"
+        }
+        return ok
+    }
+
+    /// 헤드폰이 끊기면 (배터리, 벗어서 케이스에 넣음) 멈춘다 — 다시 누르면 세션부터 다시 켠다.
+    private func routeChanged(_ note: Notification) {
+        guard
+            let raw = note.userInfo?[AVAudioSessionRouteChangeReasonKey] as? UInt,
+            AVAudioSession.RouteChangeReason(rawValue: raw) == .oldDeviceUnavailable
+        else { return }
+        pause()
+        sessionActive = false
     }
 
     private func updateNowPlaying() {
