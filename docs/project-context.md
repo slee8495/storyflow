@@ -582,8 +582,10 @@ Operator's ask: "시계 앱 만들자 … 시계로도 오디오 언제든 어�
   every chunk and appends the next chapter (with the spoken intro) when four clips are left.
   Verified in the watchOS 26.5 simulator with the `devtest` reader: plays, saves the position,
   moves from chapter 1 to 2 by itself. Not yet tried on a real watch.
-- **Build 0.1 (6)** (iPhone app + watch app) archived 2026-11-13. Upload was blocked by Apple:
-  "PLA Update available" — the account holder must accept the updated Program License Agreement
-  at developer.apple.com first. The archive is kept at
-  `~/.slstudio/storyflow-build/Storyflow-build6.xcarchive`; upload with
+- **Build 0.1 (6)** (iPhone app + watch app) archived 2026-11-13. The first upload was blocked by
+  Apple ("PLA Update available" — the account holder had to accept the updated Program License
+  Agreement); after the operator accepted it, it uploaded the same evening. The tower's renewal
+  archive (`~/.slstudio/testflight/archives/com.slstudio.storyflow.xcarchive`) is now build 6
+  (build 5 kept beside it as `-build5`). The archive is also at
+  `~/.slstudio/storyflow-build/Storyflow-build6.xcarchive`; it was uploaded with
   `xcodebuild -exportArchive -archivePath ~/.slstudio/storyflow-build/Storyflow-build6.xcarchive -exportOptionsPlist ~/.slstudio/storyflow-build/ExportOptions.plist -exportPath ~/.slstudio/storyflow-build/export -allowProvisioningUpdates`.
