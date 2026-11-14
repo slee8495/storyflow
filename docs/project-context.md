@@ -603,10 +603,18 @@ Operator's ask: "시계 앱 만들자 … 시계로도 오디오 언제든 어�
   불편해") — it's now ◀︎ one chunk back · play/pause · one chunk forward ▶︎.
 - Verified with a paired iPhone 17 Pro + Apple Watch Ultra 3 simulator: the watch's play reached the
   phone, the phone played and saved the position, the watch showed 📱 and the chapter.
+- **Build 0.1 (9), 2026-11-13:** operator: the first play came from the phone, but after pause →
+  play on the watch it restarted the chunk and played from the watch speaker. Build 8 chose phone vs.
+  watch by `isReachable` on every press; it briefly reads false (e.g. wrist raised, screen waking),
+  and the watch then silently started its own player from the saved chunk. Now the watch always
+  sends to the phone when the iPhone app is installed (`isCompanionAppInstalled`), retries twice a
+  second apart, and on failure says "폰에 닿지 않아요" with a "⌚️ 워치로 듣기" button — the watch
+  only plays by itself when chosen. The phone's Narrator re-activates its audio session on every
+  play. Verified in the paired simulators with `-autoplay -pauseResume`: stays on the phone.
 - **Build 0.1 (6)** (iPhone app + watch app) archived 2026-11-13. The first upload was blocked by
   Apple ("PLA Update available" — the account holder had to accept the updated Program License
   Agreement); after the operator accepted it, it uploaded the same evening. The tower's renewal
-  archive (`~/.slstudio/testflight/archives/com.slstudio.storyflow.xcarchive`) is now build 8
+  archive (`~/.slstudio/testflight/archives/com.slstudio.storyflow.xcarchive`) is now build 9
   (build 5 kept beside it as `-build5`). The archive is also at
-  `~/.slstudio/storyflow-build/Storyflow-build8.xcarchive` (latest); upload with
-  `xcodebuild -exportArchive -archivePath ~/.slstudio/storyflow-build/Storyflow-build8.xcarchive -exportOptionsPlist ~/.slstudio/storyflow-build/ExportOptions.plist -exportPath ~/.slstudio/storyflow-build/export -allowProvisioningUpdates`.
+  `~/.slstudio/storyflow-build/Storyflow-build9.xcarchive` (latest); upload with
+  `xcodebuild -exportArchive -archivePath ~/.slstudio/storyflow-build/Storyflow-build9.xcarchive -exportOptionsPlist ~/.slstudio/storyflow-build/ExportOptions.plist -exportPath ~/.slstudio/storyflow-build/export -allowProvisioningUpdates`.

@@ -263,9 +263,9 @@ final class Narrator: ObservableObject {
     // MARK: - 오디오 세션 · 잠금화면
 
     private func activateSession() async -> Bool {
-        if sessionActive { return true }
         let session = AVAudioSession.sharedInstance()
         #if os(watchOS)
+        if sessionActive { return true }
         // 워치는 긴 오디오를 블루투스 헤드폰으로 튼다 — 워치에 연결된 게 없으면 워치가 고르는 화면을
         // 띄운다. 켜지지 않으면 틀지 않는다 (그대로 틀면 워치 스피커로 나온다).
         do {
@@ -278,6 +278,7 @@ final class Narrator: ObservableObject {
             session.activate(options: []) { ok, _ in continuation.resume(returning: ok) }
         }
         #else
+        // 폰은 매번 다시 켠다 — 멈춘 채 뒤에 오래 있던 뒤(워치가 깨운 경우)에도 확실히 소리가 나게.
         let ok = (try? session.setCategory(.playback, mode: .spokenAudio)) != nil
             && (try? session.setActive(true)) != nil
         #endif

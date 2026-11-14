@@ -54,7 +54,9 @@ struct NowPlayingView: View {
     @EnvironmentObject private var narrator: Narrator
     @EnvironmentObject private var phone: PhoneLink
 
-    private var onPhone: Bool { phone.reachable }
+    /// 폰에 닿지 않을 때 사람이 직접 "워치로 듣기"를 고른 경우에만 워치가 튼다.
+    @State private var onWatch = false
+    private var onPhone: Bool { phone.usePhone && !onWatch }
     private var isPlaying: Bool { onPhone ? phone.isPlaying : narrator.isPlaying }
     private var isLoading: Bool { onPhone ? phone.isLoading : narrator.isLoading }
     private var error: String? { onPhone ? phone.error : narrator.errorText }
@@ -129,6 +131,20 @@ struct NowPlayingView: View {
             if let error {
                 Text(error).font(.caption2).foregroundStyle(.orange).multilineTextAlignment(.center)
             }
+            if onPhone && phone.failed {
+                Button("⌚️ 워치로 듣기") {
+                    onWatch = true
+                    narrator.play()
+                }
+                .font(.caption2)
+            } else if onWatch && phone.usePhone {
+                Button("📱 폰으로 듣기") {
+                    narrator.pause()
+                    onWatch = false
+                    phone.send("play", readerId: narrator.readerId, lang: narrator.lang)
+                }
+                .font(.caption2)
+            }
         }
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {
@@ -147,6 +163,13 @@ struct NowPlayingView: View {
             if ProcessInfo.processInfo.arguments.contains("-autoplay") {
                 try? await Task.sleep(for: .seconds(3))
                 command("toggle")
+                // `-pauseResume`: 멈췄다 다시 틀기 (빌드 8 에서 워치 스피커로 넘어가던 경우).
+                if ProcessInfo.processInfo.arguments.contains("-pauseResume") {
+                    try? await Task.sleep(for: .seconds(12))
+                    command("toggle")
+                    try? await Task.sleep(for: .seconds(4))
+                    command("toggle")
+                }
             }
             #endif
         }
@@ -163,7 +186,7 @@ struct BookListView: View {
             Section("읽는 중") {
                 ForEach(narrator.readingBooks) { book in
                     Button {
-                        if phone.reachable {
+                        if phone.usePhone {
                             phone.send("start", readerId: narrator.readerId, lang: narrator.lang, slug: book.slug)
                         } else {
                             narrator.start(book)
