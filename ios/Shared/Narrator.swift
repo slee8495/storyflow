@@ -43,9 +43,15 @@ final class Narrator: ObservableObject {
     private var sessionActive = false
     /// 사용자가 마지막으로 누른 게 재생인지 — 줄이 다 끝난 뒤 다음 챕터가 붙으면 이걸 보고 다시 튼다.
     private var wantsToPlay = false
+    /// 마지막으로 멈춘 때 — 오래 멈춰 있던 조각은 다시 받아서 튼다 (`play`).
+    private var pausedAt: Date?
+    /// 재생을 눌렀는데 소리가 안 나면 몇 초 뒤 조각을 새로 받아 다시 튼다 (`watchStall`).
+    private var stallCheck: Task<Void, Never>?
 
     /// 줄에 뭔가 걸려 있는지 (멈춰 있어도). 폰 앱이 잠금화면 버튼을 어느 플레이어로 보낼지 정할 때 쓴다.
     var hasQueue: Bool { player.currentItem != nil }
+    /// 실제로 소리가 나고 있는지 (`isPlaying` 은 버퍼링 대기도 재생으로 본다).
+    var isPlayingAudio: Bool { player.timeControlStatus == .playing }
 
     /// `remoteCommands`: 잠금화면·이어폰 버튼을 이 플레이어가 직접 받을지. 폰 앱은 NativeAudio 가
     /// 이미 받아서 이쪽으로 넘겨 주므로 false.
@@ -122,8 +128,14 @@ final class Narrator: ObservableObject {
         StoryflowAPI.log("play", hasQueue ? "resume" : "start from bookmark")
         wantsToPlay = true
         if player.currentItem != nil {
+            // 2026-11-14: 오래 멈춰 뒀다 워치로 다시 틀면 폰이 "버퍼링 대기"에 머문 채 소리가 안 났다 —
+            // 멈춘 사이 끊긴 조각을 AVPlayer 가 다시 받지 않는다. 30초 넘게 멈췄으면 지금 조각부터 새로 받는다.
+            let stale = pausedAt.map { Date().timeIntervalSince($0) > 30 } ?? false
+            pausedAt = nil
             Task {
-                if await activateSession() { player.play() }
+                guard await activateSession() else { return }
+                if stale, reloadFromCurrentChunk("resume after long pause") { } else { player.play() }
+                watchStall()
             }
         } else {
             Task {
@@ -137,13 +149,39 @@ final class Narrator: ObservableObject {
     func pause() {
         StoryflowAPI.log("pause")
         wantsToPlay = false
+        pausedAt = Date()
+        stallCheck?.cancel()
         player.pause()
+    }
+
+    /// 지금 조각부터 줄을 새로 세워 튼다. 조각을 모르면 false.
+    @discardableResult
+    private func reloadFromCurrentChunk(_ why: String) -> Bool {
+        guard let clip = playingClip else { return false }
+        StoryflowAPI.log("reload", why)
+        stopQueue()
+        guard enqueue(clip.chapter, from: clip.chunkIndex ?? 0, intro: clip.chunkIndex == nil) else { return false }
+        wantsToPlay = true
+        player.play()
+        return true
+    }
+
+    /// 재생을 누르고 8초가 지나도 소리가 안 나면 지금 조각을 새로 받아 한 번 더 튼다.
+    private func watchStall() {
+        stallCheck?.cancel()
+        stallCheck = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(8))
+            guard let self, !Task.isCancelled, self.wantsToPlay, self.hasQueue,
+                  self.player.timeControlStatus != .playing else { return }
+            self.reloadFromCurrentChunk("no sound 8s after play")
+        }
     }
 
     /// 다른 플레이어(폰 앱의 웹 낭독)가 소리를 넘겨받았을 때.
     func stop() {
         StoryflowAPI.log("stop", hasQueue ? "had a queue" : "")
         wantsToPlay = false
+        stallCheck?.cancel()
         stopQueue()
         chapterNumber = nil
         chapterTitle = nil
@@ -179,7 +217,7 @@ final class Narrator: ObservableObject {
                     return
                 }
                 errorText = nil
-                if await activateSession() { player.play() }
+                if await activateSession() { player.play(); watchStall() }
             } catch {
                 errorText = "챕터를 못 불러왔어요"
             }

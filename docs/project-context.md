@@ -628,10 +628,17 @@ Operator's ask: "시계 앱 만들자 … 시계로도 오디오 언제든 어�
   line is `{"tag":"storyflow-log",...}`). Likely cause being guarded against: iOS refusing to start
   a non-mixable session for an app woken in the background — the phone now retries with
   `.mixWithOthers` and switches back once sound starts. Unconfirmed until the next real failure.
+- **Build 0.1 (12), 2026-11-14 — no sound after a pause.** The build-11 diagnostics showed it: watch
+  toggle → phone (in background) `play resume` → `session activated` → `status waiting
+  AVPlayerWaitingToMinimizeStalls…` and never `playing`. The session was fine; the paused AVPlayerItem
+  never re-fetched its audio. Now `Narrator.play` rebuilds the queue from the current chunk when it was
+  paused >30s, and a stall check reloads the current chunk if there's no sound 8s after play (log
+  event `reload`). The phone also holds a background task (≤30s) after a watch play until audio
+  actually plays, so iOS doesn't suspend it mid-buffer. Unverified on device until the operator tries it.
 - **Build 0.1 (6)** (iPhone app + watch app) archived 2026-11-13. The first upload was blocked by
   Apple ("PLA Update available" — the account holder had to accept the updated Program License
   Agreement); after the operator accepted it, it uploaded the same evening. The tower's renewal
-  archive (`~/.slstudio/testflight/archives/com.slstudio.storyflow.xcarchive`) is now build 11
+  archive (`~/.slstudio/testflight/archives/com.slstudio.storyflow.xcarchive`) is now build 12
   (build 5 kept beside it as `-build5`). The archive is also at
-  `~/.slstudio/storyflow-build/Storyflow-build11.xcarchive` (latest); upload with
-  `xcodebuild -exportArchive -archivePath ~/.slstudio/storyflow-build/Storyflow-build11.xcarchive -exportOptionsPlist ~/.slstudio/storyflow-build/ExportOptions.plist -exportPath ~/.slstudio/storyflow-build/export -allowProvisioningUpdates`.
+  `~/.slstudio/storyflow-build/Storyflow-build12.xcarchive` (latest); upload with
+  `xcodebuild -exportArchive -archivePath ~/.slstudio/storyflow-build/Storyflow-build12.xcarchive -exportOptionsPlist ~/.slstudio/storyflow-build/ExportOptions.plist -exportPath ~/.slstudio/storyflow-build/export -allowProvisioningUpdates`.

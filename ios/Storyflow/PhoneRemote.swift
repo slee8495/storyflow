@@ -47,6 +47,7 @@ final class PhoneRemote: NSObject, WCSessionDelegate {
             narrator.readerId = readerId
         }
         if let lang = message["lang"] as? String, !narrator.hasQueue { narrator.lang = lang }
+        if ["toggle", "play", "start"].contains(message["cmd"] as? String ?? "") { keepAwakeUntilSound() }
         switch message["cmd"] as? String {
         case "toggle": narrator.toggle()
         case "play": narrator.play()
@@ -58,6 +59,29 @@ final class PhoneRemote: NSObject, WCSessionDelegate {
         default: break
         }
         return narrator.snapshot
+    }
+
+    /// 워치가 뒤에서 깨운 앱은 소리가 나기 전(조각을 받는 중)에 iOS 가 다시 재울 수 있다. 소리가 날
+    /// 때까지(최대 30초) 깨어 있게 해 달라고 한다.
+    private var backgroundTask: UIBackgroundTaskIdentifier = .invalid
+    private func keepAwakeUntilSound() {
+        guard backgroundTask == .invalid else { return }
+        backgroundTask = UIApplication.shared.beginBackgroundTask(withName: "watch-play") { [weak self] in
+            Task { @MainActor in self?.endBackgroundTask() }
+        }
+        Task { [weak self] in
+            for _ in 0..<60 {
+                try? await Task.sleep(for: .milliseconds(500))
+                if self?.narrator.isPlayingAudio == true { break }
+            }
+            self?.endBackgroundTask()
+        }
+    }
+
+    private func endBackgroundTask() {
+        guard backgroundTask != .invalid else { return }
+        UIApplication.shared.endBackgroundTask(backgroundTask)
+        backgroundTask = .invalid
     }
 
     private func pushState() {
