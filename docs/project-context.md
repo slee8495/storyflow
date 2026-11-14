@@ -611,10 +611,17 @@ Operator's ask: "시계 앱 만들자 … 시계로도 오디오 언제든 어�
   second apart, and on failure says "폰에 닿지 않아요" with a "⌚️ 워치로 듣기" button — the watch
   only plays by itself when chosen. The phone's Narrator re-activates its audio session on every
   play. Verified in the paired simulators with `-autoplay -pauseResume`: stays on the phone.
+- **Build 0.1 (10), 2026-11-13:** operator: after a long pause, pressing play gave "chaos" — the watch
+  speaker and the phone's headphones reading different places at once. The watch app's own player
+  had lock-screen/headphone (MPRemoteCommandCenter) handlers, so a play from the headphones or the
+  watch's Now Playing screen started the watch player from the saved chunk while the phone resumed.
+  Now every play control on the watch goes through `PhoneLink.command`: in phone mode it stops any
+  watch playback and sends to the phone; the watch plays only after "⌚️ 워치로 듣기" (which first
+  pauses the phone). Paired-simulator `-autoplay -pauseResume` still stays on the phone.
 - **Build 0.1 (6)** (iPhone app + watch app) archived 2026-11-13. The first upload was blocked by
   Apple ("PLA Update available" — the account holder had to accept the updated Program License
   Agreement); after the operator accepted it, it uploaded the same evening. The tower's renewal
-  archive (`~/.slstudio/testflight/archives/com.slstudio.storyflow.xcarchive`) is now build 9
+  archive (`~/.slstudio/testflight/archives/com.slstudio.storyflow.xcarchive`) is now build 10
   (build 5 kept beside it as `-build5`). The archive is also at
-  `~/.slstudio/storyflow-build/Storyflow-build9.xcarchive` (latest); upload with
-  `xcodebuild -exportArchive -archivePath ~/.slstudio/storyflow-build/Storyflow-build9.xcarchive -exportOptionsPlist ~/.slstudio/storyflow-build/ExportOptions.plist -exportPath ~/.slstudio/storyflow-build/export -allowProvisioningUpdates`.
+  `~/.slstudio/storyflow-build/Storyflow-build10.xcarchive` (latest); upload with
+  `xcodebuild -exportArchive -archivePath ~/.slstudio/storyflow-build/Storyflow-build10.xcarchive -exportOptionsPlist ~/.slstudio/storyflow-build/ExportOptions.plist -exportPath ~/.slstudio/storyflow-build/export -allowProvisioningUpdates`.

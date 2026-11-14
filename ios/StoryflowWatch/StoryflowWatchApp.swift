@@ -5,7 +5,8 @@ private let accent = Color(red: 0.36, green: 0.45, blue: 0.85)
 
 @main
 struct StoryflowWatchApp: App {
-    @StateObject private var narrator = Narrator(remoteCommands: true)
+    // 잠금화면·헤드폰 버튼은 PhoneLink.attach 가 받는다 (폰 모드면 폰으로 보내야 하므로).
+    @StateObject private var narrator = Narrator(remoteCommands: false)
     @StateObject private var phone = PhoneLink()
 
     var body: some Scene {
@@ -20,6 +21,7 @@ struct StoryflowWatchApp: App {
             .environmentObject(narrator)
             .environmentObject(phone)
             .tint(accent)
+            .task { phone.attach(narrator) }
         }
     }
 }
@@ -54,9 +56,7 @@ struct NowPlayingView: View {
     @EnvironmentObject private var narrator: Narrator
     @EnvironmentObject private var phone: PhoneLink
 
-    /// 폰에 닿지 않을 때 사람이 직접 "워치로 듣기"를 고른 경우에만 워치가 튼다.
-    @State private var onWatch = false
-    private var onPhone: Bool { phone.usePhone && !onWatch }
+    private var onPhone: Bool { phone.onPhone }
     private var isPlaying: Bool { onPhone ? phone.isPlaying : narrator.isPlaying }
     private var isLoading: Bool { onPhone ? phone.isLoading : narrator.isLoading }
     private var error: String? { onPhone ? phone.error : narrator.errorText }
@@ -75,17 +75,7 @@ struct NowPlayingView: View {
         return "\(prefix) · \(title)"
     }
 
-    private func command(_ cmd: String) {
-        if onPhone {
-            phone.send(cmd, readerId: narrator.readerId, lang: narrator.lang)
-            return
-        }
-        switch cmd {
-        case "prev": narrator.previousChunk()
-        case "next": narrator.nextChunk()
-        default: narrator.toggle()
-        }
-    }
+    private func command(_ cmd: String) { phone.command(cmd) }
 
     var body: some View {
         VStack(spacing: 6) {
@@ -132,18 +122,11 @@ struct NowPlayingView: View {
                 Text(error).font(.caption2).foregroundStyle(.orange).multilineTextAlignment(.center)
             }
             if onPhone && phone.failed {
-                Button("⌚️ 워치로 듣기") {
-                    onWatch = true
-                    narrator.play()
-                }
-                .font(.caption2)
-            } else if onWatch && phone.usePhone {
-                Button("📱 폰으로 듣기") {
-                    narrator.pause()
-                    onWatch = false
-                    phone.send("play", readerId: narrator.readerId, lang: narrator.lang)
-                }
-                .font(.caption2)
+                Button("⌚️ 워치로 듣기") { phone.switchToWatch() }
+                    .font(.caption2)
+            } else if phone.listenOnWatch && phone.usePhone {
+                Button("📱 폰으로 듣기") { phone.switchToPhone() }
+                    .font(.caption2)
             }
         }
         .toolbar {
@@ -186,8 +169,8 @@ struct BookListView: View {
             Section("읽는 중") {
                 ForEach(narrator.readingBooks) { book in
                     Button {
-                        if phone.usePhone {
-                            phone.send("start", readerId: narrator.readerId, lang: narrator.lang, slug: book.slug)
+                        if phone.onPhone {
+                            phone.command("start", slug: book.slug)
                         } else {
                             narrator.start(book)
                         }
