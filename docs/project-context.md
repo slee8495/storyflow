@@ -559,3 +559,31 @@ The library has four tabs: **읽는 중** (Reading), **다 읽음** (Finished), 
 
 ## Theme setting (2026-10-29)
 Settings → 화면 테마: 기기 설정 / 밝게 / 어둡게 / 야간. Stored in localStorage (`storyflow:theme`), applied as `data-theme` on <html> before first paint. 야간 = black page with dim warm text (low blue light) for reading in a dark room. `dark:` utilities follow the same rule via a custom variant in globals.css.
+
+## Continuous listening and the Apple Watch app (2026-11-13)
+
+Operator's ask: "시계 앱 만들자 … 시계로도 오디오 언제든 어디서든 left 했던데부터 계속 읽고. 쉽게 키고 쉽게 멈추고 … 챕터가 끝나면 오디오에서 82장 이런식으로 말하고 다음챕터 알아서 읽어주게 — 폰이던 컴퓨터이던 패드이던 시계던 다."
+
+- **Web (phone app, iPad, browsers):** when a chapter's narration ends and the next chapter is
+  translated (`nextReady` on the chapter API), the next one plays by itself with "82장. 제목." /
+  "Chapter 82. Title." spoken first, in the same language. `src/lib/chapterTrack.ts` builds the
+  track; `PlaybackProvider.playTrack` prepares the next chapter's audio (`prepareSpeech`) while the
+  current one plays, so the phone app with the screen off only needs a hand-off. The listening
+  position is saved by the track (no longer by the chapter page), so it keeps saving across
+  chapters. The open chapter page follows playback to the next chapter.
+- **Watch app (`ios/StoryflowWatch`, bundle `com.slstudio.storyflow.watchkitapp`):** standalone
+  SwiftUI app embedded in the iPhone app (watchOS 10+). It plays on its own (watch Wi-Fi/LTE +
+  AirPods — watchOS only plays long-form audio over Bluetooth), streaming each ~200-character
+  chunk's mp3 from `/api/speak` with AVQueuePlayer. `SpeechChunks.swift` is a port of
+  `splitIntoChunks`; it must stay identical to the web's (checked 2026-11-13 on six Korean/English
+  chapters: all chunks match) so positions and the Blob TTS cache are shared. Picks the reader once
+  from `GET /api/reader`; resumes the most recently read unfinished book from its saved sentence;
+  big play/pause button, book list, next-chapter button, language picker. Saves the position on
+  every chunk and appends the next chapter (with the spoken intro) when four clips are left.
+  Verified in the watchOS 26.5 simulator with the `devtest` reader: plays, saves the position,
+  moves from chapter 1 to 2 by itself. Not yet tried on a real watch.
+- **Build 0.1 (6)** (iPhone app + watch app) archived 2026-11-13. Upload was blocked by Apple:
+  "PLA Update available" — the account holder must accept the updated Program License Agreement
+  at developer.apple.com first. The archive is kept at
+  `~/.slstudio/storyflow-build/Storyflow-build6.xcarchive`; upload with
+  `xcodebuild -exportArchive -archivePath ~/.slstudio/storyflow-build/Storyflow-build6.xcarchive -exportOptionsPlist ~/.slstudio/storyflow-build/ExportOptions.plist -exportPath ~/.slstudio/storyflow-build/export -allowProvisioningUpdates`.
