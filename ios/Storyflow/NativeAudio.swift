@@ -25,16 +25,21 @@ final class NativeAudio: NSObject, WKScriptMessageHandler, AVAudioPlayerDelegate
 
     override init() {
         super.init()
+        // 잠금화면·이어폰 버튼. 워치 리모컨으로 튼 낭독(PhoneRemote)이 걸려 있으면 그쪽으로 보낸다.
         let commands = MPRemoteCommandCenter.shared()
         commands.playCommand.addTarget { [weak self] _ in
-            self?.resume()
+            if let narrator = Self.watchNarrator { narrator.play() } else { self?.resume() }
             return .success
         }
         commands.pauseCommand.addTarget { [weak self] _ in
-            self?.pause()
+            if let narrator = Self.watchNarrator { narrator.pause() } else { self?.pause() }
             return .success
         }
         commands.togglePlayPauseCommand.addTarget { [weak self] _ in
+            if let narrator = Self.watchNarrator {
+                narrator.toggle()
+                return .success
+            }
             guard let self, let player = self.player else { return .noActionableNowPlayingItem }
             player.isPlaying ? self.pause() : self.resume()
             return .success
@@ -52,6 +57,8 @@ final class NativeAudio: NSObject, WKScriptMessageHandler, AVAudioPlayerDelegate
         guard let body = message.body as? [String: Any], let type = body["type"] as? String else { return }
         switch type {
         case "begin":
+            // 웹 낭독이 다시 소리를 가져간다 — 워치 리모컨으로 틀던 것은 멈춘다.
+            MainActor.assumeIsolated { PhoneRemote.shared.narrator.stop() }
             stop()
             pending = Data()
         case "data":
@@ -69,6 +76,13 @@ final class NativeAudio: NSObject, WKScriptMessageHandler, AVAudioPlayerDelegate
             stop()
         default:
             break
+        }
+    }
+
+    /// 워치 리모컨으로 튼 낭독이 줄에 걸려 있으면 그 플레이어.
+    private static var watchNarrator: Narrator? {
+        MainActor.assumeIsolated {
+            PhoneRemote.shared.narrator.hasQueue ? PhoneRemote.shared.narrator : nil
         }
     }
 

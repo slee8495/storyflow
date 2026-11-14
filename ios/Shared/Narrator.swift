@@ -3,12 +3,12 @@ import Combine
 import MediaPlayer
 import SwiftUI
 
-/// 워치에서 직접 낭독을 튼다 — 폰이 없어도 (워치 LTE·와이파이 + 에어팟) 된다.
+/// 낭독을 앱이 직접 튼다 — 워치 앱과, 워치가 리모컨일 때의 아이폰 앱이 같이 쓴다.
 ///
-/// 폰 앱·웹은 한 챕터를 WAV 하나로 이어 붙여 틀지만 워치에서 그 렌더링은 너무 무겁다. 여기서는
-/// 조각(~200자)마다 서버의 mp3 를 AVQueuePlayer 에 줄 세워 틀고, 조각이 바뀔 때마다 이어 듣기
-/// 위치를 저장한다. 챕터 끝이 가까워지면 다음 챕터(번역된 것만)를 "82장. 제목." 한 줄과 함께
-/// 줄 뒤에 붙여서 끊김 없이 넘어간다.
+/// 폰 앱·웹은 한 챕터를 WAV 하나로 이어 붙여 틀지만, 이 플레이어는 조각(~200자)마다 서버의 mp3 를
+/// AVQueuePlayer 에 줄 세워 틀고, 조각이 바뀔 때마다 이어 듣기 위치를 저장한다. 챕터 끝이
+/// 가까워지면 다음 챕터(번역된 것만)를 "82장. 제목." 한 줄과 함께 줄 뒤에 붙여서 끊김 없이 넘어간다.
+/// 조각 단위로 앞뒤로 옮길 수 있다 (워치의 ◀︎ ▶︎).
 @MainActor
 final class Narrator: ObservableObject {
     @Published var readerId: Int? = UserDefaults.standard.object(forKey: "readerId") as? Int {
@@ -34,15 +34,22 @@ final class Narrator: ObservableObject {
 
     private let player = AVQueuePlayer()
     private var clips: [ObjectIdentifier: Clip] = [:]
+    /// 지금 들리는 조각.
+    private var playingClip: Clip?
     /// 줄 맨 뒤에 붙어 있는 챕터 — 다음 챕터는 이 뒤에 붙인다.
-    private var lastQueued: (chapter: StoryflowAPI.Chapter, remaining: Int)?
+    private var lastQueued: StoryflowAPI.Chapter?
     private var appendingNext = false
     private var observers: Set<AnyCancellable> = []
     private var sessionActive = false
     /// 사용자가 마지막으로 누른 게 재생인지 — 줄이 다 끝난 뒤 다음 챕터가 붙으면 이걸 보고 다시 튼다.
     private var wantsToPlay = false
 
-    init() {
+    /// 줄에 뭔가 걸려 있는지 (멈춰 있어도). 폰 앱이 잠금화면 버튼을 어느 플레이어로 보낼지 정할 때 쓴다.
+    var hasQueue: Bool { player.currentItem != nil }
+
+    /// `remoteCommands`: 잠금화면·이어폰 버튼을 이 플레이어가 직접 받을지. 폰 앱은 NativeAudio 가
+    /// 이미 받아서 이쪽으로 넘겨 주므로 false.
+    init(remoteCommands: Bool) {
         player.actionAtItemEnd = .advance
         player.publisher(for: \.currentItem)
             .receive(on: DispatchQueue.main)
@@ -56,6 +63,11 @@ final class Narrator: ObservableObject {
                 self.updateNowPlaying()
             }
             .store(in: &observers)
+        NotificationCenter.default.publisher(for: AVAudioSession.routeChangeNotification)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] note in self?.routeChanged(note) }
+            .store(in: &observers)
+        guard remoteCommands else { return }
         let commands = MPRemoteCommandCenter.shared()
         commands.playCommand.addTarget { [weak self] _ in
             Task { @MainActor in self?.play() }
@@ -65,10 +77,6 @@ final class Narrator: ObservableObject {
             Task { @MainActor in self?.pause() }
             return .success
         }
-        NotificationCenter.default.publisher(for: AVAudioSession.routeChangeNotification)
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] note in self?.routeChanged(note) }
-            .store(in: &observers)
         commands.togglePlayPauseCommand.addTarget { [weak self] _ in
             Task { @MainActor in self?.toggle() }
             return .success
@@ -95,7 +103,7 @@ final class Narrator: ObservableObject {
         }
     }
 
-    // MARK: - 재생 버튼
+    // MARK: - 버튼
 
     func toggle() {
         if isPlaying { pause() } else { play() }
@@ -107,14 +115,38 @@ final class Narrator: ObservableObject {
             Task {
                 if await activateSession() { player.play() }
             }
-        } else if let current {
-            start(current)
+        } else {
+            Task {
+                // 폰 앱이 워치 버튼으로 처음 깨어났을 때는 서재부터 불러야 듣던 책을 안다.
+                if current == nil { await loadLibrary() }
+                if let current { start(current) }
+            }
         }
     }
 
     func pause() {
         wantsToPlay = false
         player.pause()
+    }
+
+    /// 다른 플레이어(폰 앱의 웹 낭독)가 소리를 넘겨받았을 때.
+    func stop() {
+        wantsToPlay = false
+        stopQueue()
+        chapterNumber = nil
+        chapterTitle = nil
+    }
+
+    /// 한 조각 뒤로 — 지금 조각의 처음이 아니라 바로 앞 조각부터 다시.
+    func previousChunk() {
+        guard let clip = playingClip else { return }
+        restart(clip.chapter, at: max((clip.chunkIndex ?? 0) - 1, 0))
+    }
+
+    /// 한 조각 앞으로.
+    func nextChunk() {
+        guard player.items().count > 1 else { return }
+        player.advanceToNextItem()
     }
 
     /// 책의 이어 듣기 위치(챕터 + 문장)부터 튼다.
@@ -142,24 +174,18 @@ final class Narrator: ObservableObject {
         }
     }
 
-    /// 지금 챕터를 건너뛰고 다음 챕터로.
-    func skipChapter() {
-        guard let readerId, let current, let chapterNumber else { return }
-        let book = current
+    /// 같은 책을 slug 로 (워치가 폰에 "이 책 틀어"라고 보낼 때).
+    func start(slug: String) async {
+        if !books.contains(where: { $0.slug == slug }) { await loadLibrary() }
+        if let book = books.first(where: { $0.slug == slug }) { start(book) }
+    }
+
+    private func restart(_ chapter: StoryflowAPI.Chapter, at index: Int) {
+        let resume = wantsToPlay || isPlaying
         stopQueue()
-        wantsToPlay = true
-        isLoading = true
-        Task {
-            defer { isLoading = false }
-            guard let next = try? await StoryflowAPI.chapter(
-                slug: book.slug, number: chapterNumber + 1, readerId: readerId),
-                enqueue(next, from: 0, intro: true)
-            else {
-                errorText = "다음 챕터가 아직 없어요"
-                return
-            }
-            if await activateSession() { player.play() }
-        }
+        guard enqueue(chapter, from: index, intro: false) else { return }
+        wantsToPlay = resume
+        if resume { player.play() }
     }
 
     // MARK: - 줄 세우기
@@ -179,7 +205,7 @@ final class Narrator: ObservableObject {
             let text = SpeechChunks.stripVerseMarkers(chunks[index])
             add(StoryflowAPI.speechURL(text), Clip(chapter: chapter, chunkIndex: index))
         }
-        lastQueued = (chapter, chunks.count - from)
+        lastQueued = chapter
         return true
     }
 
@@ -193,6 +219,7 @@ final class Narrator: ObservableObject {
         player.pause()
         player.removeAllItems()
         clips.removeAll()
+        playingClip = nil
         lastQueued = nil
     }
 
@@ -202,6 +229,7 @@ final class Narrator: ObservableObject {
             if item == nil { isPlaying = false }
             return
         }
+        playingClip = clip
         chapterNumber = clip.chapter.chapter.chapterNumber
         chapterTitle = clip.chapter.title(lang)
         updateNowPlaying()
@@ -211,9 +239,9 @@ final class Narrator: ObservableObject {
                 chapterNumber: clip.chapter.chapter.chapterNumber, chunkIndex: index, lang: lang)
         }
         // 마지막 챕터의 남은 조각이 몇 개 안 남으면 다음 챕터를 미리 붙인다.
-        if let last = lastQueued, last.chapter.chapter.chapterNumber == clip.chapter.chapter.chapterNumber {
-            let left = player.items().count
-            if left <= 4 { appendNextChapter(after: last.chapter) }
+        if let last = lastQueued, last.chapter.chapterNumber == clip.chapter.chapter.chapterNumber,
+           player.items().count <= 4 {
+            appendNextChapter(after: last)
         }
     }
 
@@ -224,7 +252,7 @@ final class Narrator: ObservableObject {
             defer { appendingNext = false }
             guard let next = try? await StoryflowAPI.chapter(
                 slug: chapter.book.slug, number: chapter.chapter.chapterNumber + 1, readerId: readerId),
-                lastQueued?.chapter.chapter.chapterNumber == chapter.chapter.chapterNumber
+                lastQueued?.chapter.chapterNumber == chapter.chapter.chapterNumber
             else { return }
             enqueue(next, from: 0, intro: true)
             // 이미 줄이 다 끝나 멈춰 있었다면 다시 튼다.
@@ -234,13 +262,12 @@ final class Narrator: ObservableObject {
 
     // MARK: - 오디오 세션 · 잠금화면
 
-    /// 워치는 긴 오디오를 블루투스 이어폰·헤드폰으로만 튼다 — 연결이 안 돼 있으면 워치가 기기를
-    /// 고르는 화면을 띄운다. 세션이 켜지지 않으면 틀지 않는다: 그대로 틀면 워치 스피커로 나온다
-    /// (2026-11-13 실제 워치에서 그랬다 — 그때는 mode 를 .spokenAudio 로 줬고, 실패해도 그냥 틀었다).
-    /// 애플 예제대로 mode 는 .default.
     private func activateSession() async -> Bool {
         if sessionActive { return true }
         let session = AVAudioSession.sharedInstance()
+        #if os(watchOS)
+        // 워치는 긴 오디오를 블루투스 헤드폰으로 튼다 — 워치에 연결된 게 없으면 워치가 고르는 화면을
+        // 띄운다. 켜지지 않으면 틀지 않는다 (그대로 틀면 워치 스피커로 나온다).
         do {
             try session.setCategory(.playback, mode: .default, policy: .longFormAudio, options: [])
         } catch {
@@ -250,6 +277,10 @@ final class Narrator: ObservableObject {
         let ok = await withCheckedContinuation { continuation in
             session.activate(options: []) { ok, _ in continuation.resume(returning: ok) }
         }
+        #else
+        let ok = (try? session.setCategory(.playback, mode: .spokenAudio)) != nil
+            && (try? session.setActive(true)) != nil
+        #endif
         sessionActive = ok
         if !ok {
             wantsToPlay = false
@@ -262,21 +293,31 @@ final class Narrator: ObservableObject {
     private func routeChanged(_ note: Notification) {
         guard
             let raw = note.userInfo?[AVAudioSessionRouteChangeReasonKey] as? UInt,
-            AVAudioSession.RouteChangeReason(rawValue: raw) == .oldDeviceUnavailable
+            AVAudioSession.RouteChangeReason(rawValue: raw) == .oldDeviceUnavailable,
+            hasQueue
         else { return }
         pause()
         sessionActive = false
     }
 
     private func updateNowPlaying() {
-        guard let current, let chapterNumber else {
-            MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
-            return
-        }
+        guard hasQueue, let current, let chapterNumber else { return }
         MPNowPlayingInfoCenter.default().nowPlayingInfo = [
             MPMediaItemPropertyTitle: chapterTitle.map { "\(chapterNumber). \($0)" } ?? "Ch. \(chapterNumber)",
             MPMediaItemPropertyArtist: lang == "en" ? (current.titleEn ?? current.title) : current.title,
             MPNowPlayingInfoPropertyPlaybackRate: isPlaying ? 1.0 : 0.0,
         ]
+    }
+
+    // MARK: - 워치 ↔ 폰
+
+    /// 워치 화면에 보여 줄 상태 (WatchConnectivity 메시지로 오간다).
+    var snapshot: [String: Any] {
+        var state: [String: Any] = ["playing": isPlaying, "loading": isLoading, "lang": lang]
+        if let current { state["book"] = lang == "en" ? (current.titleEn ?? current.title) : current.title }
+        if let chapterNumber { state["chapter"] = chapterNumber }
+        if let chapterTitle { state["chapterTitle"] = chapterTitle }
+        if let errorText { state["error"] = errorText }
+        return state
     }
 }

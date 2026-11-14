@@ -21,6 +21,8 @@ declare global {
   interface Window {
     webkit?: { messageHandlers?: { storyflowAudio?: { postMessage(message: AudioMessage): void } } };
     __storyflowNativeAudio?: (event: string, value?: number) => void;
+    // Set by PlaybackProvider: stops web narration when the watch starts the phone's own player.
+    __storyflowStopPlayback?: () => void;
   }
 }
 

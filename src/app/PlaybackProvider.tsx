@@ -187,6 +187,15 @@ export function PlaybackProvider({ children }: { children: React.ReactNode }) {
     navigator.mediaSession.playbackState = speakState === "paused" ? "paused" : "playing";
   }, [label, speakState]);
 
+  // The iPhone app calls this when the Apple Watch starts narration on the phone natively
+  // (ios/Storyflow/PhoneRemote.swift), so the two never talk over each other.
+  useEffect(() => {
+    window.__storyflowStopPlayback = stop;
+    return () => {
+      delete window.__storyflowStopPlayback;
+    };
+  }, [stop]);
+
   useEffect(() => {
     if (typeof navigator === "undefined" || !("mediaSession" in navigator)) return;
     navigator.mediaSession.setActionHandler("play", resume);

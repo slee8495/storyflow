@@ -12,7 +12,7 @@ settings:
     CODE_SIGN_STYLE: Automatic
     MARKETING_VERSION: "0.1"
     # 올릴 때마다 하나씩 올린다. 안 올리면 App Store Connect 가 거절한다.
-    CURRENT_PROJECT_VERSION: "7"
+    CURRENT_PROJECT_VERSION: "8"
     SWIFT_VERSION: "5.0"
 
 targets:
@@ -21,6 +21,8 @@ targets:
     platform: iOS
     sources:
       - path: Storyflow
+      # 워치 앱과 같이 쓰는 낭독 플레이어 (워치가 리모컨일 때 폰이 직접 튼다).
+      - path: Shared
     # 챕터 낭독을 켜 두고 화면을 끄는 게 기본 사용법이다. 이게 없으면 화면이 꺼지는 순간 멎는다.
     # `INFOPLIST_KEY_UIBackgroundModes` 로는 안 된다 — Xcode 가 모르는 키는 조용히 버리므로
     # 배열로 주는 이 키는 파일에 직접 적는다 (wordflow/ios 참고).
@@ -61,6 +63,7 @@ targets:
     deploymentTarget: "10.0"
     sources:
       - path: StoryflowWatch
+      - path: Shared
     info:
       path: StoryflowWatch/Info.plist
       properties:

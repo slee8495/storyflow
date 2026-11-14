@@ -589,10 +589,24 @@ Operator's ask: "시계 앱 만들자 … 시계로도 오디오 언제든 어�
   as in Apple's sample — was `.spokenAudio`); otherwise it shows "블루투스 헤드폰을 연결해 주세요".
   It also pauses when the headphones disconnect. Not reproducible in the simulator (no Bluetooth
   route), so verified by build only.
+- **Build 0.1 (8), 2026-11-13 — the watch is a remote when the phone is nearby.** Build 7 still
+  played from the watch speaker: the operator's headphones are paired to the iPhone, not the watch,
+  and a standalone watch app can only use headphones paired to the watch. Now, whenever the phone is
+  reachable (WatchConnectivity), the watch's buttons go to the iPhone app
+  (`ios/Storyflow/PhoneRemote.swift`), which plays with the same native `Narrator`
+  (`ios/Shared/`, shared by both targets) — sound comes from the phone and whatever it's connected
+  to. iOS wakes the app in the background for the watch's message. Starting it stops the web
+  narration (`window.__storyflowStopPlayback`) and vice versa (NativeAudio "begin" stops the
+  Narrator); lock-screen buttons go to whichever is playing. Away from the phone the watch still
+  plays by itself. The watch shows 📱 before the book title in phone mode.
+- Operator, same day: no next-chapter button on the watch ("잘못 누르면 다음 챕터 넘어가지고 오히려
+  불편해") — it's now ◀︎ one chunk back · play/pause · one chunk forward ▶︎.
+- Verified with a paired iPhone 17 Pro + Apple Watch Ultra 3 simulator: the watch's play reached the
+  phone, the phone played and saved the position, the watch showed 📱 and the chapter.
 - **Build 0.1 (6)** (iPhone app + watch app) archived 2026-11-13. The first upload was blocked by
   Apple ("PLA Update available" — the account holder had to accept the updated Program License
   Agreement); after the operator accepted it, it uploaded the same evening. The tower's renewal
-  archive (`~/.slstudio/testflight/archives/com.slstudio.storyflow.xcarchive`) is now build 7
+  archive (`~/.slstudio/testflight/archives/com.slstudio.storyflow.xcarchive`) is now build 8
   (build 5 kept beside it as `-build5`). The archive is also at
-  `~/.slstudio/storyflow-build/Storyflow-build7.xcarchive` (latest); upload with
-  `xcodebuild -exportArchive -archivePath ~/.slstudio/storyflow-build/Storyflow-build7.xcarchive -exportOptionsPlist ~/.slstudio/storyflow-build/ExportOptions.plist -exportPath ~/.slstudio/storyflow-build/export -allowProvisioningUpdates`.
+  `~/.slstudio/storyflow-build/Storyflow-build8.xcarchive` (latest); upload with
+  `xcodebuild -exportArchive -archivePath ~/.slstudio/storyflow-build/Storyflow-build8.xcarchive -exportOptionsPlist ~/.slstudio/storyflow-build/ExportOptions.plist -exportPath ~/.slstudio/storyflow-build/export -allowProvisioningUpdates`.

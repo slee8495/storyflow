@@ -24,6 +24,8 @@ struct StoryflowApp: App {
         } catch {
             NSLog("[Storyflow] audio session: \(error.localizedDescription)")
         }
+        // 워치 리모컨 (PhoneRemote.swift). 워치가 앱을 뒤에서 깨워도 받을 수 있게 시작하자마자 켠다.
+        PhoneRemote.shared.activate()
     }
 
     var body: some Scene {

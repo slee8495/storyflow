@@ -25,6 +25,7 @@ struct StoryflowWebView: UIViewRepresentable {
         webView.uiDelegate = context.coordinator
         webView.navigationDelegate = context.coordinator
         context.coordinator.audio.webView = webView
+        PhoneRemote.shared.webView = webView
         webView.allowsBackForwardNavigationGestures = true
         webView.scrollView.bounces = false
         webView.load(URLRequest(url: Storyflow.homeURL))

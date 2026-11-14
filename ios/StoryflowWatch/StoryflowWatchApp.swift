@@ -1,8 +1,12 @@
 import SwiftUI
 
+/// 웹앱의 인디고(--clay)와 같은 계열.
+private let accent = Color(red: 0.36, green: 0.45, blue: 0.85)
+
 @main
 struct StoryflowWatchApp: App {
-    @StateObject private var narrator = Narrator()
+    @StateObject private var narrator = Narrator(remoteCommands: true)
+    @StateObject private var phone = PhoneLink()
 
     var body: some Scene {
         WindowGroup {
@@ -14,8 +18,8 @@ struct StoryflowWatchApp: App {
                 }
             }
             .environmentObject(narrator)
-            // 웹앱의 인디고(--clay)와 같은 계열.
-            .tint(Color(red: 0.36, green: 0.45, blue: 0.85))
+            .environmentObject(phone)
+            .tint(accent)
         }
     }
 }
@@ -42,79 +46,108 @@ struct ReaderPickView: View {
     }
 }
 
-/// 한 화면에 큰 재생/멈춤 버튼 하나 — 걸으면서도 대충 눌러도 되게.
+/// 가운데 큰 재생/멈춤, 양옆에 한 조각(몇 문장) 뒤로·앞으로. 챕터를 통째로 넘기는 버튼은 없다 —
+/// 잘못 누르면 챕터가 넘어가 버려서 오히려 불편했다 (2026-11-13).
+///
+/// 폰이 곁에 있으면 버튼은 폰으로 가고 소리는 폰에서 난다. 폰이 없으면 워치가 직접 튼다.
 struct NowPlayingView: View {
     @EnvironmentObject private var narrator: Narrator
+    @EnvironmentObject private var phone: PhoneLink
+
+    private var onPhone: Bool { phone.reachable }
+    private var isPlaying: Bool { onPhone ? phone.isPlaying : narrator.isPlaying }
+    private var isLoading: Bool { onPhone ? phone.isLoading : narrator.isLoading }
+    private var error: String? { onPhone ? phone.error : narrator.errorText }
 
     private var bookTitle: String {
+        if onPhone, let book = phone.book { return book }
         guard let book = narrator.current else { return "듣던 책이 없어요" }
         return narrator.lang == "en" ? (book.titleEn ?? book.title) : book.title
     }
 
     private var chapterLine: String? {
-        guard let number = narrator.chapterNumber ?? narrator.current?.bookmarkChapter else { return nil }
+        let number = onPhone ? phone.chapter : (narrator.chapterNumber ?? narrator.current?.bookmarkChapter)
+        guard let number else { return nil }
         let prefix = narrator.lang == "ko" ? "\(number)장" : "Ch. \(number)"
-        guard let title = narrator.chapterTitle else { return prefix }
+        guard let title = onPhone ? phone.chapterTitle : narrator.chapterTitle else { return prefix }
         return "\(prefix) · \(title)"
     }
 
-    var body: some View {
-        ScrollView {
-            VStack(spacing: 8) {
-                Text(bookTitle)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                if let chapterLine {
-                    Text(chapterLine)
-                        .font(.footnote.weight(.semibold))
-                        .multilineTextAlignment(.center)
-                        .lineLimit(2)
-                }
+    private func command(_ cmd: String) {
+        if onPhone {
+            phone.send(cmd, readerId: narrator.readerId, lang: narrator.lang)
+            return
+        }
+        switch cmd {
+        case "prev": narrator.previousChunk()
+        case "next": narrator.nextChunk()
+        default: narrator.toggle()
+        }
+    }
 
-                Button(action: narrator.toggle) {
+    var body: some View {
+        VStack(spacing: 6) {
+            Text(onPhone ? "📱 \(bookTitle)" : bookTitle)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+            if let chapterLine {
+                Text(chapterLine)
+                    .font(.footnote.weight(.semibold))
+                    .multilineTextAlignment(.center)
+                    .lineLimit(2)
+            }
+
+            HStack(spacing: 6) {
+                Button { command("prev") } label: {
+                    Image(systemName: "backward.fill").font(.title3)
+                }
+                .accessibilityLabel("한 조각 뒤로")
+
+                Button { command("toggle") } label: {
                     ZStack {
-                        Circle().fill(Color(red: 0.36, green: 0.45, blue: 0.85))
-                        if narrator.isLoading {
+                        Circle().fill(accent)
+                        if isLoading {
                             ProgressView()
                         } else {
-                            Image(systemName: narrator.isPlaying ? "pause.fill" : "play.fill")
-                                .font(.system(size: 44, weight: .bold))
+                            Image(systemName: isPlaying ? "pause.fill" : "play.fill")
+                                .font(.system(size: 38, weight: .bold))
                                 .foregroundStyle(.white)
                         }
                     }
-                    .frame(width: 110, height: 110)
+                    .frame(width: 90, height: 90)
                 }
                 .buttonStyle(.plain)
-                .disabled(narrator.current == nil)
-                .accessibilityLabel(narrator.isPlaying ? "멈춤" : "재생")
+                .accessibilityLabel(isPlaying ? "멈춤" : "재생")
 
-                if let error = narrator.errorText {
-                    Text(error).font(.caption2).foregroundStyle(.orange).multilineTextAlignment(.center)
+                Button { command("next") } label: {
+                    Image(systemName: "forward.fill").font(.title3)
                 }
+                .accessibilityLabel("한 조각 앞으로")
+            }
 
-                HStack {
-                    NavigationLink {
-                        BookListView()
-                    } label: {
-                        Label("책", systemImage: "books.vertical")
-                    }
-                    Button {
-                        narrator.skipChapter()
-                    } label: {
-                        Label("다음 장", systemImage: "forward.end.fill")
-                    }
-                    .disabled(narrator.chapterNumber == nil)
+            if let error {
+                Text(error).font(.caption2).foregroundStyle(.orange).multilineTextAlignment(.center)
+            }
+        }
+        .toolbar {
+            ToolbarItem(placement: .topBarLeading) {
+                NavigationLink {
+                    BookListView()
+                } label: {
+                    Image(systemName: "books.vertical")
                 }
-                .labelStyle(.iconOnly)
-                .font(.title3)
+                .accessibilityLabel("책")
             }
         }
         .task {
             await narrator.loadLibrary()
             #if DEBUG
-            // 시뮬레이터 확인용: `-autoplay` 로 띄우면 바로 이어 듣기를 시작한다.
-            if ProcessInfo.processInfo.arguments.contains("-autoplay") { narrator.play() }
+            // 시뮬레이터 확인용: `-autoplay` 로 띄우면 바로 이어 듣기를 시작한다 (폰이 곁에 있으면 폰에서).
+            if ProcessInfo.processInfo.arguments.contains("-autoplay") {
+                try? await Task.sleep(for: .seconds(3))
+                command("toggle")
+            }
             #endif
         }
     }
@@ -122,6 +155,7 @@ struct NowPlayingView: View {
 
 struct BookListView: View {
     @EnvironmentObject private var narrator: Narrator
+    @EnvironmentObject private var phone: PhoneLink
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -129,7 +163,11 @@ struct BookListView: View {
             Section("읽는 중") {
                 ForEach(narrator.readingBooks) { book in
                     Button {
-                        narrator.start(book)
+                        if phone.reachable {
+                            phone.send("start", readerId: narrator.readerId, lang: narrator.lang, slug: book.slug)
+                        } else {
+                            narrator.start(book)
+                        }
                         dismiss()
                     } label: {
                         VStack(alignment: .leading) {
