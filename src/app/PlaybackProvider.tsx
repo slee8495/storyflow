@@ -46,6 +46,12 @@ export function PlaybackProvider({ children }: { children: React.ReactNode }) {
   // Guards a stale playText() call's callbacks/cleanup from running after a newer call (or an
   // explicit stop()) has already taken over — same idea as speak.ts's own playToken, one level up.
   const genRef = useRef(0);
+  // Orders pause/resume presses within one playback, so a slow resume() that settles after a later
+  // pause doesn't flip the state back to "playing". Deliberately separate from genRef: resuming
+  // used to bump genRef, which orphaned the still-playing passage's own callbacks — the sentence
+  // highlight froze after pause → play while the audio kept going (operator, 2026-11-13), and
+  // position saving and moving on to the next chapter stopped with it.
+  const pressRef = useRef(0);
   // Mirrors speakState for resume() to read synchronously (see below) without needing speakState
   // in its dependency array — keeps pause/resume/stop identity-stable across renders, which
   // matters since they're re-registered with the Media Session API on every change (see the
@@ -133,6 +139,7 @@ export function PlaybackProvider({ children }: { children: React.ReactNode }) {
   );
 
   const pause = useCallback(() => {
+    pressRef.current++;
     setSpeakState((cur) => {
       if (cur !== "playing") return cur;
       pauseSpeaking();
@@ -142,10 +149,12 @@ export function PlaybackProvider({ children }: { children: React.ReactNode }) {
 
   const resume = useCallback(() => {
     if (speakStateRef.current !== "paused") return;
-    const gen = ++genRef.current;
+    const gen = genRef.current;
+    const press = ++pressRef.current;
     setSpeakState("loading");
     resumeSpeaking().then((ok) => {
-      if (genRef.current !== gen) return; // superseded by a newer action before this settled
+      // superseded by a newer playback, stop, pause or resume before this settled
+      if (genRef.current !== gen || pressRef.current !== press) return;
       if (ok) {
         setSpeakState("playing");
         return;
@@ -155,6 +164,7 @@ export function PlaybackProvider({ children }: { children: React.ReactNode }) {
       // it). There's no cached buffer left to restart from, so reset to a clean not-playing
       // state instead of leaving the UI/lock-screen widget stuck showing "playing" with no
       // sound — the user has to reopen the passage and press play again either way.
+      genRef.current++;
       setSpeakState(null);
       setActiveChunkIndex(null);
       setSourceId(null);
