@@ -23,10 +23,27 @@ export async function loadSource(book: QueuedBook): Promise<string> {
   const dir = join(process.cwd(), "data", "gutenberg");
   const path = join(dir, `${book.gutenbergId}.txt`);
   if (!existsSync(path)) {
-    const res = await fetch(`https://www.gutenberg.org/cache/epub/${book.gutenbergId}/pg${book.gutenbergId}.txt`);
-    if (!res.ok) throw new Error(`download failed for ${book.slug}: ${res.status}`);
+    // www.gutenberg.org returned 503 for days in Nov 2026 while the pglaf mirror kept serving the
+    // same files, so try the mirror before giving up.
+    const id = book.gutenbergId;
+    const hosts = ["https://www.gutenberg.org", "https://gutenberg.pglaf.org"];
+    const statuses: string[] = [];
+    let text: string | null = null;
+    for (const host of hosts) {
+      try {
+        const res = await fetch(`${host}/cache/epub/${id}/pg${id}.txt`);
+        if (res.ok) {
+          text = await res.text();
+          break;
+        }
+        statuses.push(`${host} ${res.status}`);
+      } catch (err) {
+        statuses.push(`${host} ${(err as Error).message}`);
+      }
+    }
+    if (text === null) throw new Error(`download failed for ${book.slug}: ${statuses.join(", ")}`);
     mkdirSync(dir, { recursive: true });
-    writeFileSync(path, await res.text());
+    writeFileSync(path, text);
   }
   return readFileSync(path, "utf-8");
 }
