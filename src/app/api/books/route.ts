@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { eq, and, count, isNotNull } from "drizzle-orm";
 import { db } from "@/db";
 import { archivedBooks, books, bookmarks, chapters, finishedBooks } from "@/db/schema";
+import { isBookShared } from "@/lib/share";
 import { computeListenSecondsLeft, computeOverallProgressPct, loadChapterLengths } from "@/lib/progress";
 
 // Library list — every book, with the requesting reader's current bookmark chapter (if any) so
@@ -15,7 +16,7 @@ import { computeListenSecondsLeft, computeOverallProgressPct, loadChapterLengths
 // started yet), null for finished books.
 export async function GET(req: NextRequest) {
   const readerId = Number(req.nextUrl.searchParams.get("readerId") ?? "");
-  const allBooks = await db.select().from(books);
+  const allBooks = (await db.select().from(books)).filter((b) => isBookShared(b.slug));
   const readyRows = await db
     .select({ bookId: chapters.bookId, ready: count() })
     .from(chapters)

@@ -635,3 +635,17 @@ Operator's ask: "시계 앱 만들자 … 시계로도 오디오 언제든 어�
   (build 5 kept beside it as `-build5`). The archive is also at
   `~/.slstudio/storyflow-build/Storyflow-build11.xcarchive` (latest); upload with
   `xcodebuild -exportArchive -archivePath ~/.slstudio/storyflow-build/Storyflow-build11.xcarchive -exportOptionsPlist ~/.slstudio/storyflow-build/ExportOptions.plist -exportPath ~/.slstudio/storyflow-build/export -allowProvisioningUpdates`.
+
+## Share link (2026-11-21)
+
+The operator's wife reads through a second web link — **https://storyflow-share.vercel.app**,
+Vercel project `storyflow-share` (same repo, same Neon DB, her own reader name → her own progress).
+It is not git-connected: deploy it with `vercel deploy --prod` from a checkout linked to
+`storyflow-share` (`vercel link --project storyflow-share`). Env on that project: `DATABASE_URL`,
+`APP_PIN` (her PIN, separate from the main app's), and `NEXT_PUBLIC_SHARE_BOOKS` — comma-separated
+book slugs she can see (now `brothers-karamazov`). To share another book, add its slug there and
+redeploy (it's inlined at build time). With that variable set (`src/lib/share.ts`): the library
+lists only those books, every other book's pages and `/api/books/<slug>/**` are hidden by
+`src/proxy.ts`, the reading plan (`/plan`, `/api/plan` — the main reader's global list) is blocked
+and its link hidden, `GET /api/reader` returns no names, and the icon's book is rose instead of
+indigo. Unset on the main project, so nothing there changes.

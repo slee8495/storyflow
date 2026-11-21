@@ -8,6 +8,7 @@ import { useViewMode, ViewToggle } from "./ViewToggle";
 import { formatDay } from "./FinishControl";
 import { ReadingStats } from "./ReadingStats";
 import { ChevronIcon } from "./ChevronIcon";
+import { IS_SHARE } from "@/lib/share";
 
 type LibraryTab = "reading" | "finished" | "archived" | "stats";
 const TAB_KEY = "storyflow:tab:library";
@@ -130,12 +131,16 @@ export default function LibraryPage() {
       )}
 
       <div className="flex min-h-9 items-center justify-between gap-2">
-        <Link
-          href="/plan"
-          className="flex items-center gap-1 text-sm font-medium text-[var(--clay-deep)] hover:text-[var(--ink)]"
-        >
-          {t("plan.link")} <ChevronIcon direction="right" />
-        </Link>
+        {IS_SHARE ? (
+          <span />
+        ) : (
+          <Link
+            href="/plan"
+            className="flex items-center gap-1 text-sm font-medium text-[var(--clay-deep)] hover:text-[var(--ink)]"
+          >
+            {t("plan.link")} <ChevronIcon direction="right" />
+          </Link>
+        )}
         {tab !== "stats" && shown.length > 0 && <ViewToggle mode={view} onChange={setView} />}
       </div>
 
