@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { readers } from "@/db/schema";
+import { IS_SHARE } from "@/lib/share";
 
 // Claims (or creates) a reader identity by name — the entire "login" mechanism for this personal,
 // single-user app (see docs/project-context.md: no OAuth, no password). Idempotent: calling again
@@ -10,6 +11,8 @@ import { readers } from "@/db/schema";
 // Lists the readers, for the Apple Watch app — typing a name on a watch is a pain, so it lets the
 // reader pick theirs once instead.
 export async function GET() {
+  // The share deployment has no watch app, and shouldn't show the main reader's name.
+  if (IS_SHARE) return NextResponse.json({ readers: [] });
   const all = await db.select({ id: readers.id, name: readers.name }).from(readers).orderBy(readers.id);
   return NextResponse.json({ readers: all });
 }
