@@ -9,6 +9,7 @@
 #   chapters from where the operator is reading up to the end of the NEXT book, then rests until
 #   they catch up. Images are drawn locally (mflux); Claude only writes the prompts.
 # With nothing left in either it just says so once.
+# 2026-11-25: translation, like pictures, only covers the current + next plan book (src/lib/translationWindow.ts).
 cd "$(dirname "$0")/../.." || exit 1
 export PATH="/Users/stanlee/.npm-global/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
 # Headless `claude -p` stops background subagents 10 min after its last turn; translating 4 chapters
@@ -36,7 +37,7 @@ log "pictures: $PICS_TODO to draw $(echo "$PICS" | grep '^REST' || true)"
 
 if [ "$PENDING" = "ALL_DONE" ] && [ "$PICS_TODO" = "0" ]; then
   if [ ! -f "$WORK/.all-done-notified" ]; then
-    osascript -e 'display notification "읽을 책 목록의 번역이 모두 끝났어요" with title "Storyflow"' 2>/dev/null
+    osascript -e 'display notification "지금 책·다음 책까지 번역·그림 끝 — 다음 책으로 넘어가면 다시 시작해요" with title "Storyflow"' 2>/dev/null
     touch "$WORK/.all-done-notified"
   fi
   exit 0
