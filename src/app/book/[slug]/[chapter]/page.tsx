@@ -19,12 +19,13 @@ const PICTURES_KEY = "storyflow:pictures";
 const RESUME_MARKER_ID = "resume-marker";
 const TOOLBAR_ID = "chapter-toolbar";
 const ILLUSTRATION_PANEL_ID = "chapter-illustrations";
+const TITLE_ROW_ID = "chapter-title-row";
 const CHUNK_ATTR = "data-chunk";
 
 // The viewport line just below everything pinned at the top (site header, language toolbar,
 // illustrations) — i.e. where the reader's eyes are on the text.
 function readingLineY() {
-  const bottoms = ["body header", `#${TOOLBAR_ID}`, `#${ILLUSTRATION_PANEL_ID}`].map(
+  const bottoms = ["body header", `#${TOOLBAR_ID}`, `#${TITLE_ROW_ID}`, `#${ILLUSTRATION_PANEL_ID}`].map(
     (selector) => document.querySelector(selector)?.getBoundingClientRect().bottom ?? 0,
   );
   return Math.max(...bottoms) + 8;
@@ -542,6 +543,7 @@ export default function ChapterPage() {
 
   const headerHeight = useElementHeight("body header");
   const toolbarHeight = useElementHeight(`#${TOOLBAR_ID}`, [readerLoading, reader]);
+  const titleRowHeight = useElementHeight(`#${TITLE_ROW_ID}`, [data]);
 
   const markerIndex = resumePosition && resumePosition.lang === lang ? resumePosition.chunkIndex : null;
 
@@ -603,7 +605,12 @@ export default function ChapterPage() {
       {data && (
         <>
           <section className="rounded-xl border border-[var(--line)] bg-[var(--paper-raised)] p-4 shadow-sm">
-            <div className="mb-2 flex items-center justify-between gap-2">
+            {/* Pinned too (2026-11-25 user), so 🖼️ / 🔖 / 🔊 stay in reach mid-chapter. */}
+            <div
+              id={TITLE_ROW_ID}
+              className="sticky z-[6] -mx-4 mb-2 flex items-center justify-between gap-2 bg-[var(--paper-raised)] px-4 py-2"
+              style={{ top: headerHeight + toolbarHeight }}
+            >
               <h1 className="text-lg font-semibold text-[var(--ink)]">
                 Ch. {chapterNumber} · {lang === "en" ? data.chapter.titleEn : data.chapter.titleKo}
               </h1>
@@ -663,9 +670,9 @@ export default function ChapterPage() {
               </div>
             )}
             {pictures.length > 0 ? (
-              showPictures && <PicturePanel pictures={pictures} progress={pictureProgress} stickyTop={headerHeight + toolbarHeight} />
+              showPictures && <PicturePanel pictures={pictures} progress={pictureProgress} stickyTop={headerHeight + toolbarHeight + titleRowHeight} />
             ) : (
-              <IllustrationPanel illustrations={data.illustrations} lang={lang} stickyTop={headerHeight + toolbarHeight} />
+              <IllustrationPanel illustrations={data.illustrations} lang={lang} stickyTop={headerHeight + toolbarHeight + titleRowHeight} />
             )}
             {adaptationNote(slug, chapterNumber, lang) && (
               <p className="mb-3 rounded-lg border border-[var(--line)] bg-[var(--clay-tint)] px-3 py-2 text-xs leading-relaxed text-[var(--ink-soft)]">
