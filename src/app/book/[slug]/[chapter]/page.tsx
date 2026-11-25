@@ -15,6 +15,7 @@ import { usePlayback } from "../../../PlaybackProvider";
 import { useUiLanguage } from "../../../UiLanguageProvider";
 
 const LANG_KEY = "storyflow:lang";
+const PICTURES_KEY = "storyflow:pictures";
 const RESUME_MARKER_ID = "resume-marker";
 const TOOLBAR_ID = "chapter-toolbar";
 const ILLUSTRATION_PANEL_ID = "chapter-illustrations";
@@ -91,6 +92,8 @@ type Illustration = {
   captionEn: string;
 };
 
+type Picture = { at: number; imageUrl: string };
+
 type SavedMark = {
   id: number;
   chapterNumber: number;
@@ -106,6 +109,7 @@ type ChapterResponse = {
   book: { id: number; slug: string; title: string; totalChapters: number | null };
   chapter: ChapterData;
   illustrations: Illustration[];
+  pictures?: Picture[];
   marks: SavedMark[];
   hasPrev: boolean;
   hasNext: boolean;
@@ -161,6 +165,39 @@ function IllustrationPanel({
         </figure>
       ))}
     </>
+  );
+}
+
+// The chapter's photoreal scene pictures (see schema.ts chapterPictures): one at a time, pinned
+// under the site header like the museum artwork above, switching as the reading position (the
+// sentence being narrated, or else the reading line while scrolling) passes each picture's `at`.
+// All of them are rendered stacked and only the current one is visible, so the switch is an
+// instant cross-fade with nothing left to download.
+function PicturePanel({ pictures, progress, stickyTop }: { pictures: Picture[]; progress: number; stickyTop: number }) {
+  if (pictures.length === 0) return null;
+  let current = 0;
+  pictures.forEach((p, i) => {
+    if (p.at <= progress + 1e-6) current = i;
+  });
+  return (
+    <div
+      id={ILLUSTRATION_PANEL_ID}
+      className="sticky z-[5] -mx-4 mb-3 border-b border-[var(--line)] bg-[var(--paper-raised)] px-4 py-2"
+      style={{ top: stickyTop }}
+    >
+      <a href={pictures[current].imageUrl} target="_blank" rel="noopener noreferrer" className="relative block aspect-[7/4] max-h-[32vh] w-full overflow-hidden rounded-lg bg-black">
+        {pictures.map((p, i) => (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            key={p.imageUrl}
+            src={p.imageUrl}
+            alt=""
+            loading={i <= current + 1 ? "eager" : "lazy"}
+            className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-700 ${i === current ? "opacity-100" : "opacity-0"}`}
+          />
+        ))}
+      </a>
+    </div>
   );
 }
 
@@ -275,6 +312,29 @@ export default function ChapterPage() {
   // True when the page was opened from the book page's bookmark list (?at=&lang=) — the marked
   // sentence is then that bookmark, not the automatic resume point.
   const [openedFromMark, setOpenedFromMark] = useState(false);
+  // 🖼 shows/hides the scene pictures (2026-11-24 user: "내가 볼수도 있고 안볼수도 있게"),
+  // remembered per device. On by default.
+  const [showPictures, setShowPictures] = useState(true);
+
+  useEffect(() => {
+    try {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      if (localStorage.getItem(PICTURES_KEY) === "off") setShowPictures(false);
+    } catch {
+      // storage blocked — pictures stay on
+    }
+  }, []);
+
+  function togglePictures() {
+    setShowPictures((on) => {
+      try {
+        localStorage.setItem(PICTURES_KEY, on ? "off" : "on");
+      } catch {
+        // storage blocked — the choice just won't be remembered
+      }
+      return !on;
+    });
+  }
 
   useEffect(() => {
     const stored = localStorage.getItem(LANG_KEY);
@@ -391,6 +451,16 @@ export default function ChapterPage() {
       window.removeEventListener("resize", update);
     };
   }, [chunks]);
+  // Where the reader is in this chapter (0-1 by characters) for the scene pictures: the sentence
+  // being narrated while this chapter plays, otherwise the reading line.
+  const pictureProgress = useMemo(() => {
+    if (!isSpeakingThis || activeChunkIndex === null || chunks.length === 0) return withinChapter;
+    const total = chunks.reduce((sum, c) => sum + c.length, 0);
+    const before = chunks.slice(0, activeChunkIndex).reduce((sum, c) => sum + c.length, 0);
+    return total ? before / total : 0;
+  }, [isSpeakingThis, activeChunkIndex, chunks, withinChapter]);
+  const pictures = data?.pictures ?? [];
+
   const totalChapters = data?.book.totalChapters ?? null;
   // Floored, so 100% only shows once the last line is reached. Same measure as the library's
   // progressPct (src/lib/progress.ts computeOverallProgressPct).
@@ -538,6 +608,16 @@ export default function ChapterPage() {
                 Ch. {chapterNumber} · {lang === "en" ? data.chapter.titleEn : data.chapter.titleKo}
               </h1>
               <div className="flex shrink-0 items-center gap-2">
+                {pictures.length > 0 && (
+                  <button
+                    onClick={togglePictures}
+                    aria-pressed={showPictures}
+                    aria-label={showPictures ? "삽화 숨기기" : "삽화 보기"}
+                    className={`rounded-full px-1.5 text-lg ${showPictures ? "bg-[var(--clay-tint)] ring-2 ring-[var(--clay)]" : "opacity-50"}`}
+                  >
+                    🖼️
+                  </button>
+                )}
                 <button
                   onClick={() => setMarkMode((on) => !on)}
                   aria-pressed={markMode}
@@ -582,7 +662,11 @@ export default function ChapterPage() {
                 </button>
               </div>
             )}
-            <IllustrationPanel illustrations={data.illustrations} lang={lang} stickyTop={headerHeight + toolbarHeight} />
+            {pictures.length > 0 ? (
+              showPictures && <PicturePanel pictures={pictures} progress={pictureProgress} stickyTop={headerHeight + toolbarHeight} />
+            ) : (
+              <IllustrationPanel illustrations={data.illustrations} lang={lang} stickyTop={headerHeight + toolbarHeight} />
+            )}
             {adaptationNote(slug, chapterNumber, lang) && (
               <p className="mb-3 rounded-lg border border-[var(--line)] bg-[var(--clay-tint)] px-3 py-2 text-xs leading-relaxed text-[var(--ink-soft)]">
                 {adaptationNote(slug, chapterNumber, lang)}
