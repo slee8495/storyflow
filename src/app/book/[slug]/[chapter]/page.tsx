@@ -186,7 +186,7 @@ function PicturePanel({ pictures, progress, stickyTop }: { pictures: Picture[]; 
       className="sticky z-[5] -mx-4 mb-3 border-b border-[var(--line)] bg-[var(--paper-raised)] px-4 py-2"
       style={{ top: stickyTop }}
     >
-      <a href={pictures[current].imageUrl} target="_blank" rel="noopener noreferrer" className="relative block aspect-[7/4] max-h-[32vh] w-full overflow-hidden rounded-lg bg-black">
+      <a href={pictures[current].imageUrl} target="_blank" rel="noopener noreferrer" className="relative mx-auto block aspect-[7/4] w-full max-w-[56vh] overflow-hidden rounded-lg bg-black">
         {pictures.map((p, i) => (
           // eslint-disable-next-line @next/next/no-img-element
           <img
