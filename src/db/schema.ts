@@ -224,6 +224,32 @@ export const readingPlan = pgTable("reading_plan", {
   addedAt: timestamp("added_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
+// Photoreal scene pictures for a chapter (2026-11-24 user: "워드플로우 퀄리티의 사진들을 넣는거야",
+// shown pinned at the top while reading, can be hidden). Made on the operator's Mac by the
+// morning batch (scripts/pictures/, after translation): Claude picks the moments and writes the
+// image prompts, a local image model (mflux, same as Wordflow's films) draws them. Unlike
+// chapterIllustrations (curated museum art), a chapter has several, each taking over at `at` — a
+// 0-1 fraction of the way through the story by characters, so the picture follows the reading
+// position in either language. All of a chapter's rows are written together, once.
+export const chapterPictures = pgTable(
+  "chapter_pictures",
+  {
+    id: serial("id").primaryKey(),
+    chapterId: integer("chapter_id")
+      .notNull()
+      .references(() => chapters.id, { onDelete: "cascade" }),
+    position: integer("position").notNull(),
+    at: real("at").notNull(),
+    imageUrl: text("image_url").notNull(),
+    // The image prompt and the book's shared visual style, kept so a book's later chapters stay
+    // consistent (same faces, same look).
+    prompt: text("prompt").notNull(),
+    style: text("style").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [unique().on(t.chapterId, t.position)],
+);
+
 export type Reader = typeof readers.$inferSelect;
 export type Book = typeof books.$inferSelect;
 export type Chapter = typeof chapters.$inferSelect;
@@ -233,3 +259,4 @@ export type ChapterIllustration = typeof chapterIllustrations.$inferSelect;
 export type SavedMark = typeof savedMarks.$inferSelect;
 export type FinishedBook = typeof finishedBooks.$inferSelect;
 export type ArchivedBook = typeof archivedBooks.$inferSelect;
+export type ChapterPicture = typeof chapterPictures.$inferSelect;

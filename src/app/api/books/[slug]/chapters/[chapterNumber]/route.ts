@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { eq, and, asc } from "drizzle-orm";
 import { db } from "@/db";
-import { books, chapters, bookmarks, chapterIllustrations, savedMarks, type SavedMark } from "@/db/schema";
+import { books, chapters, bookmarks, chapterIllustrations, chapterPictures, savedMarks, type SavedMark } from "@/db/schema";
 import { ensureChapterContent } from "@/lib/generateChapter";
 
 // A never-before-read chapter is generated inline on this request (two parallel Claude calls, see
@@ -46,6 +46,14 @@ export async function GET(
     .where(eq(chapterIllustrations.chapterId, row.id))
     .orderBy(asc(chapterIllustrations.position));
 
+  // Photoreal scene pictures (scripts/pictures/), each taking over at `at` (0-1 through the story).
+  const pictures = await db
+    .select({ at: chapterPictures.at, imageUrl: chapterPictures.imageUrl })
+    .from(chapterPictures)
+    .where(eq(chapterPictures.chapterId, row.id))
+    .orderBy(asc(chapterPictures.position))
+    .catch(() => []); // a picture lookup failing must never stop the chapter from loading
+
   const [nextRow] = await db
     .select({ id: chapters.id, generatedAt: chapters.generatedAt })
     .from(chapters)
@@ -81,6 +89,7 @@ export async function GET(
     book: { id: book.id, slug: book.slug, title: book.title, totalChapters: book.totalChapters },
     chapter,
     illustrations,
+    pictures,
     marks,
     hasPrev,
     hasNext,
