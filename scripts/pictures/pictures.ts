@@ -225,7 +225,14 @@ async function main() {
   for (const ch of list) {
     const book = bookRows.find((b) => b.id === ch.bookId)!;
     try {
-      await picture(ch, book.slug, book.title);
+      // Neon drops a connection left idle while the previous chapter was drawing (~10 min), so
+      // the first query after it can fail; one retry gets a fresh one. Prompts and drawings are
+      // cached on disk, so a retry costs nothing.
+      await picture(ch, book.slug, book.title).catch((e) => {
+        if (!String(e?.message ?? e).includes("Failed query")) throw e;
+        log(`retry   ${book.slug} ${ch.chapterNumber} (database connection had gone stale)`);
+        return picture(ch, book.slug, book.title);
+      });
     } catch (e) {
       failed++;
       log(`FAILED  ${book.slug} ${ch.chapterNumber}:`, e instanceof Error ? e.message : e);
