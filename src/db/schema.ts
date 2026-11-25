@@ -8,6 +8,7 @@ import {
   real,
   date,
   unique,
+  jsonb,
 } from "drizzle-orm/pg-core";
 
 // Personal, single-user app — no OAuth/billing (see docs/project-context.md). Identity is just a
@@ -233,3 +234,37 @@ export type ChapterIllustration = typeof chapterIllustrations.$inferSelect;
 export type SavedMark = typeof savedMarks.$inferSelect;
 export type FinishedBook = typeof finishedBooks.$inferSelect;
 export type ArchivedBook = typeof archivedBooks.$inferSelect;
+
+// "영상으로 보기" for one chapter: photoreal stills with slow camera motion, narrated in the app's
+// own /api/speak voice, Korean subtitles under the picture. Made on the operator's Mac by
+// scripts/film/ (launchd every 4 hours) for ONE chapter at a time — the chapter right after the
+// one the operator is reading — so normally only one row is "ready". `script` (the only Claude
+// step: scene boundaries as chunk ranges of splitIntoChunks(storyKo) + an image prompt per scene)
+// is kept after the video is deleted, so coming back to a chapter only re-renders it. `textSig`
+// hashes the storyKo the script was cut from; a regenerated chapter needs a new script.
+// While a chapter's film is ready, narration stops at the end of the chapter before it instead of
+// carrying on (nextReady in the chapter route), so the film is never skipped by accident.
+export const chapterFilms = pgTable("chapter_films", {
+  id: serial("id").primaryKey(),
+  chapterId: integer("chapter_id")
+    .notNull()
+    .unique()
+    .references(() => chapters.id, { onDelete: "cascade" }),
+  status: varchar("status", { length: 16 }).notNull(), // "ready" | "archived"
+  textSig: varchar("text_sig", { length: 64 }).notNull(),
+  script: jsonb("script").$type<FilmScript>().notNull(),
+  cues: jsonb("cues").$type<FilmCue[] | null>(),
+  videoUrl: text("video_url"),
+  posterUrl: text("poster_url"),
+  durationSec: real("duration_sec"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+// A scene covers chunks [from, to) of splitIntoChunks(storyKo) — the chunks the narration plays —
+// so the film's subtitles and the reader's saved position line up with the text view.
+export type FilmScene = { from: number; to: number; prompt: string; seed: number };
+export type FilmScript = { title: string; style: string; scenes: FilmScene[] };
+// `chunk` is the splitIntoChunks index the cue's text came from (a long chunk spans several cues).
+export type FilmCue = { start: number; end: number; text: string; chunk: number };
+export type ChapterFilm = typeof chapterFilms.$inferSelect;

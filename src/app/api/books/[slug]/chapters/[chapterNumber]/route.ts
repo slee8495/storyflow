@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { eq, and, asc } from "drizzle-orm";
+import { eq, and, asc, inArray } from "drizzle-orm";
 import { db } from "@/db";
-import { books, chapters, bookmarks, chapterIllustrations, savedMarks, type SavedMark } from "@/db/schema";
+import { books, chapters, bookmarks, chapterIllustrations, chapterFilms, savedMarks, type SavedMark } from "@/db/schema";
 import { ensureChapterContent } from "@/lib/generateChapter";
 
 // A never-before-read chapter is generated inline on this request (two parallel Claude calls, see
@@ -52,11 +52,29 @@ export async function GET(
     .where(and(eq(chapters.bookId, book.id), eq(chapters.chapterNumber, chapterNum + 1)))
     .limit(1);
 
+  // "영상으로 보기" films (scripts/film/) — this chapter's, and whether the next one has one.
+  const filmRows = await db
+    .select({
+      chapterId: chapterFilms.chapterId,
+      videoUrl: chapterFilms.videoUrl,
+      posterUrl: chapterFilms.posterUrl,
+      cues: chapterFilms.cues,
+      durationSec: chapterFilms.durationSec,
+    })
+    .from(chapterFilms)
+    .where(and(inArray(chapterFilms.chapterId, nextRow ? [row.id, nextRow.id] : [row.id]), eq(chapterFilms.status, "ready")))
+    .catch(() => []); // a film lookup failing must never stop the chapter from loading
+  const filmRow = filmRows.find((f) => f.chapterId === row.id && f.videoUrl);
+  const film = filmRow ? { videoUrl: filmRow.videoUrl!, posterUrl: filmRow.posterUrl, cues: filmRow.cues, durationSec: filmRow.durationSec } : null;
+  const nextFilm = Boolean(nextRow && filmRows.some((f) => f.chapterId === nextRow.id && f.videoUrl));
+
   const hasPrev = chapterNum > 1;
   const hasNext = Boolean(nextRow);
   // Narration only carries on into the next chapter by itself once it's translated — otherwise
-  // opening it would start a slow on-demand generation in the middle of listening.
-  const nextReady = Boolean(nextRow?.generatedAt);
+  // opening it would start a slow on-demand generation in the middle of listening. It also stops
+  // before a chapter that has a film (2026-11-24 user: "영상 있는 부분에서만 잠깐 멈추는거지"), so
+  // the film is watched rather than skipped; from the film chapter on, it carries on as usual.
+  const nextReady = Boolean(nextRow?.generatedAt) && !nextFilm;
 
   let resume: { chunkIndex: number; lang: "ko" | "en" } | null = null;
   let marks: SavedMark[] = [];
@@ -85,6 +103,8 @@ export async function GET(
     hasPrev,
     hasNext,
     nextReady,
+    nextFilm,
+    film,
     resume,
   });
 }

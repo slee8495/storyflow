@@ -13,6 +13,7 @@ import { FinishControl } from "../../../FinishControl";
 import { ChevronIcon } from "../../../ChevronIcon";
 import { usePlayback } from "../../../PlaybackProvider";
 import { useUiLanguage } from "../../../UiLanguageProvider";
+import { FilmPlayer, type Film } from "../../../FilmPlayer";
 
 const LANG_KEY = "storyflow:lang";
 const RESUME_MARKER_ID = "resume-marker";
@@ -110,6 +111,8 @@ type ChapterResponse = {
   hasPrev: boolean;
   hasNext: boolean;
   nextReady: boolean;
+  nextFilm?: boolean;
+  film?: Film | null;
   resume: ResumePosition | null;
 };
 
@@ -275,6 +278,10 @@ export default function ChapterPage() {
   // True when the page was opened from the book page's bookmark list (?at=&lang=) — the marked
   // sentence is then that bookmark, not the automatic resume point.
   const [openedFromMark, setOpenedFromMark] = useState(false);
+  // "영상으로 보기": a chapter with a film opens on the film (that's why narration stopped before
+  // it); 📖 switches to the text, per visit.
+  const [view, setView] = useState<"film" | "text">("film");
+  const [filmEnded, setFilmEnded] = useState(false);
 
   useEffect(() => {
     const stored = localStorage.getItem(LANG_KEY);
@@ -292,6 +299,8 @@ export default function ChapterPage() {
     setMarks([]);
     setMarkMode(false);
     setOpenedFromMark(false);
+    setView("film");
+    setFilmEnded(false);
     // A never-before-read chapter takes a few seconds to generate (see /api/books/[slug]/
     // chapters/[chapterNumber]) — flip a slower-feeling message on after a short delay instead of
     // always showing "불러오는 중" for what's usually an instant cached fetch.
@@ -456,6 +465,34 @@ export default function ChapterPage() {
     if (track) playTrack(track);
   }
 
+  // After the film: the reader starts the next chapter once by hand, and from there narration
+  // carries on from chapter to chapter as usual (2026-11-24 user).
+  async function listenToNextChapter() {
+    if (!data || !reader) return;
+    const next = chapterNumber + 1;
+    const res = await fetch(`/api/books/${slug}/chapters/${next}?readerId=${reader.id}`).catch(() => null);
+    if (res?.ok) {
+      const track = chapterTrack(await res.json(), { lang, readerId: reader.id });
+      if (track) playTrack(track);
+    }
+    router.push(`/book/${slug}/${next}`);
+  }
+
+  // The film's position is saved like narration's, so 이어읽기 and the film loop know where the reader is.
+  function saveFilmPosition(chunkIndex: number) {
+    if (!data || !reader) return;
+    fetch("/api/bookmarks", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ readerId: reader.id, bookId: data.book.id, chapterNumber, chunkIndex, lang: "ko" }),
+    }).catch(() => {
+      // best-effort — a missed save just resumes a little earlier next time
+    });
+  }
+
+  const film = data?.film ?? null;
+  const showFilm = !!film && view === "film";
+
   // Keyboard: ← / → turn to the previous / next chapter (ignored while typing or with modifiers).
   useEffect(() => {
     if (!data) return;
@@ -571,7 +608,46 @@ export default function ChapterPage() {
                 )}
               </div>
             </div>
-            {markMode && (
+            {film && (
+              <div className="mb-3 flex gap-1 rounded-full bg-[var(--clay-tint)] p-0.5 text-xs">
+                {(["film", "text"] as const).map((v) => (
+                  <button
+                    key={v}
+                    onClick={() => setView(v)}
+                    className={`flex-1 rounded-full px-2 py-1 ${
+                      view === v ? "bg-[var(--paper-raised)] text-[var(--ink)] shadow-sm" : "text-[var(--ink-soft)]"
+                    }`}
+                  >
+                    {v === "film" ? "🎬 영상으로 보기" : "📖 글로 읽기"}
+                  </button>
+                ))}
+              </div>
+            )}
+            {showFilm && film && (
+              <>
+                <FilmPlayer
+                  film={film}
+                  vttUrl={`/api/books/${slug}/chapters/${chapterNumber}/vtt`}
+                  startChunk={resumePosition?.lang === "ko" ? resumePosition.chunkIndex : null}
+                  onPlay={() => {
+                    setFilmEnded(false);
+                    if (playingSourceId) stop();
+                  }}
+                  onChunk={saveFilmPosition}
+                  onEnded={() => setFilmEnded(true)}
+                  pause={speakState === "playing"}
+                />
+                {filmEnded && data.hasNext && (
+                  <button
+                    onClick={listenToNextChapter}
+                    className="mb-3 w-full rounded-lg bg-[var(--clay-deep)] px-3 py-2 text-sm font-medium text-[var(--paper-raised)]"
+                  >
+                    🔊 {t("chapter.next")} — Ch. {chapterNumber + 1}
+                  </button>
+                )}
+              </>
+            )}
+            {markMode && !showFilm && (
               <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-lg bg-[var(--clay-tint)] px-3 py-2 text-xs text-[var(--ink)]">
                 <span>{t("marks.modeHint")}</span>
                 <button
@@ -582,18 +658,20 @@ export default function ChapterPage() {
                 </button>
               </div>
             )}
-            <IllustrationPanel illustrations={data.illustrations} lang={lang} stickyTop={headerHeight + toolbarHeight} />
+            {!showFilm && (
+              <IllustrationPanel illustrations={data.illustrations} lang={lang} stickyTop={headerHeight + toolbarHeight} />
+            )}
             {adaptationNote(slug, chapterNumber, lang) && (
               <p className="mb-3 rounded-lg border border-[var(--line)] bg-[var(--clay-tint)] px-3 py-2 text-xs leading-relaxed text-[var(--ink-soft)]">
                 {adaptationNote(slug, chapterNumber, lang)}
               </p>
             )}
-            {markerIndex !== null && !isSpeakingThis && (
+            {markerIndex !== null && !isSpeakingThis && !showFilm && (
               <p className="mb-2 text-xs text-[var(--ink-soft)]">
                 🔖 {openedFromMark ? t("marks.jumpHint") : t("chapter.resumeHint")}
               </p>
             )}
-            {chunks.length > 0 ? (
+            {showFilm ? null : chunks.length > 0 ? (
               <HighlightedText
                 text={lang === "en" ? data.chapter.storyEn! : data.chapter.storyKo!}
                 isActiveSection={isSpeakingThis}
