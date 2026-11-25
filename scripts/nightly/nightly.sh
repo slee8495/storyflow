@@ -13,12 +13,19 @@
 cd "$(dirname "$0")/../.." || exit 1
 export PATH="/Users/stanlee/.npm-global/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
 # Headless `claude -p` stops background subagents 10 min after its last turn; translating 4 chapters
-# takes longer, so wait for them (the 3-hour perl alarm below is the real ceiling).
+# takes longer, so wait for them (the 3-hour with_timeout below is the real ceiling).
 export CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS=0
 WORK="$HOME/Library/Caches/storyflow-nightly"
 LOG="$WORK/nightly.log"
 LOCK="$WORK/.lock"
 mkdir -p "$WORK"
+# Time limit that kills the whole process tree. `perl -e 'alarm shift; exec @ARGV'` only killed
+# npx and left tsx/node (and the mflux it spawned) running past the ceiling (2026-11-25).
+with_timeout() {
+  perl -e '$t = shift; $p = fork; if (!$p) { setpgrp(0, 0); exec @ARGV or exit 127 }
+    $SIG{ALRM} = sub { kill "TERM", -$p; sleep 10; kill "KILL", -$p; $to = 1 };
+    alarm $t; waitpid($p, 0); exit($to ? 124 : $? >> 8)' "$@"
+}
 log() { echo "$(date '+%m-%d %H:%M') $*" >> "$LOG"; }
 
 if ! mkdir "$LOCK" 2>/dev/null; then
@@ -54,14 +61,14 @@ TOWER_GATE="$HOME/.slstudio/tower/gate"; if [ -x "$TOWER_GATE" ] && ! "$TOWER_GA
 if [ "$PICS_TODO" != "0" ]; then
   (
     for _ in $(seq 60); do [ -d "$HOME/.slstudio/wordflow-film/.lock" ] || break; sleep 60; done
-    perl -e 'alarm shift; exec @ARGV' 14400 npx tsx --env-file=.env.local scripts/pictures/pictures.ts >> "$LOG" 2>&1
+    with_timeout 14400 npx tsx --env-file=.env.local scripts/pictures/pictures.ts >> "$LOG" 2>&1
     log "pictures exited $?"
   ) &
 fi
 
 if [ "$PENDING" != "ALL_DONE" ]; then
   PROMPT=$(sed -e "s|{{BATCH_DIR}}|$BATCH|" -e "s|{{PENDING}}|$PENDING|" scripts/nightly/prompt.md)
-  perl -e 'alarm shift; exec @ARGV' 10800 claude -p "$PROMPT" --model opus --permission-mode acceptEdits \
+  with_timeout 10800 claude -p "$PROMPT" --model opus --permission-mode acceptEdits \
     --allowedTools "Bash Read Edit Write Grep Glob Agent" >> "$LOG" 2>&1
   log "claude exited $?"
 fi
