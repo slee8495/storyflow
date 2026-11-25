@@ -16,7 +16,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { asc, desc, eq, inArray, isNotNull, sql } from "drizzle-orm";
-import { put } from "@vercel/blob";
+import { del, put } from "@vercel/blob";
 import { db } from "@/db";
 import { bookmarks, books, chapterPictures, chapters, finishedBooks, readers, readingPlan, type Chapter } from "@/db/schema";
 import { splitIntoChunks } from "@/lib/speak";
@@ -201,6 +201,36 @@ async function picture(ch: Chapter, slug: string, bookTitle: string) {
   log(`done    ${slug} ${ch.chapterNumber} (${rows.length} pictures)`);
 }
 
+// 2026-11-24 user: "한번 지나간 건 다시 안봐도 되. 스토리플로우는 한번 읽고 지나가면 끝이니까" —
+// pictures of chapters behind the one being read (and of books outside the current/next window)
+// are deleted, from Blob and the DB and the local cache. The current chapter's stay.
+async function purgePassed(pos: { bookId: number; chapterNumber: number }, nextBookId: number | null) {
+  const keepBooks = nextBookId ? [pos.bookId, nextBookId] : [pos.bookId];
+  const rows = await db
+    .select({ id: chapterPictures.id, chapterId: chapterPictures.chapterId, imageUrl: chapterPictures.imageUrl, bookId: chapters.bookId, chapterNumber: chapters.chapterNumber })
+    .from(chapterPictures)
+    .innerJoin(chapters, eq(chapters.id, chapterPictures.chapterId));
+  const isPassed = (r: { bookId: number; chapterNumber: number }) =>
+    !keepBooks.includes(r.bookId) || (r.bookId === pos.bookId && r.chapterNumber < pos.chapterNumber);
+
+  // Drawings still waiting on disk for chapters already read won't be needed either.
+  const cached = fs.existsSync(WORK) ? fs.readdirSync(WORK).map(Number).filter((n) => Number.isInteger(n) && n > 0) : [];
+  if (cached.length) {
+    const cachedChapters = await db
+      .select({ id: chapters.id, bookId: chapters.bookId, chapterNumber: chapters.chapterNumber })
+      .from(chapters)
+      .where(inArray(chapters.id, cached));
+    for (const c of cachedChapters.filter(isPassed)) fs.rmSync(path.join(WORK, String(c.id)), { recursive: true, force: true });
+  }
+
+  const passed = rows.filter(isPassed);
+  if (!passed.length) return;
+  if (process.env.BLOB_READ_WRITE_TOKEN) await del(passed.map((r) => r.imageUrl)).catch((e) => log("  blob delete failed", String(e)));
+  await db.delete(chapterPictures).where(inArray(chapterPictures.id, passed.map((r) => r.id)));
+  for (const id of new Set(passed.map((r) => r.chapterId))) fs.rmSync(path.join(WORK, String(id)), { recursive: true, force: true });
+  log(`purged  ${passed.length} pictures of ${new Set(passed.map((r) => r.chapterId)).size} chapters already read`);
+}
+
 async function main() {
   const args = process.argv.slice(2);
   const max = args.includes("--max") ? Number(args[args.indexOf("--max") + 1]) : 8;
@@ -217,6 +247,7 @@ async function main() {
       process.exit(0);
     }
     if (t.pos) log(`reader at ${t.pos.slug} ${t.pos.chapterNumber}; next book ${t.next?.slug ?? "none"}; ${t.picked.length} to draw`);
+    if (t.pos) await purgePassed(t.pos, t.next?.bookId ?? null);
     list = t.picked;
   }
 
